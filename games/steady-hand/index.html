@@ -824,6 +824,8 @@
         // Unified input handler for mouse and touch
         let isTouching = false;
         let touchStartTime = 0;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
 
         function getInputPosition(event) {
             const rect = canvas.getBoundingClientRect();
@@ -845,29 +847,42 @@
             return { x, y };
         }
 
-        // Mouse events (desktop)
+        // Mouse events (desktop) - absolute positioning
         function onMouseMove(event) {
             const pos = getInputPosition(event);
             game.mouseX = pos.x;
             game.mouseY = pos.y;
         }
 
-        // Touch events (mobile) - keep finger DOWN and drag
+        // Touch events (mobile) - RELATIVE movement (trackpad style)
         function onTouchStart(event) {
             event.preventDefault();
             isTouching = true;
             touchStartTime = Date.now();
             const pos = getInputPosition(event);
-            game.mouseX = pos.x;
-            game.mouseY = pos.y;
+            lastTouchX = pos.x;
+            lastTouchY = pos.y;
         }
 
         function onTouchMove(event) {
             event.preventDefault();
             if (isTouching) {
                 const pos = getInputPosition(event);
-                game.mouseX = pos.x;
-                game.mouseY = pos.y;
+                // Calculate relative movement (delta)
+                const deltaX = pos.x - lastTouchX;
+                const deltaY = pos.y - lastTouchY;
+                
+                // Apply relative movement to mouse position
+                game.mouseX += deltaX;
+                game.mouseY += deltaY;
+                
+                // Keep within bounds
+                game.mouseX = Math.max(0, Math.min(CANVAS_WIDTH, game.mouseX));
+                game.mouseY = Math.max(0, Math.min(CANVAS_HEIGHT, game.mouseY));
+                
+                // Update last position for next delta calculation
+                lastTouchX = pos.x;
+                lastTouchY = pos.y;
             }
         }
 

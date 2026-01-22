@@ -104,56 +104,60 @@
             margin-top: 10px;
         }
 
-        /* Virtual Joystick for Mobile */
-        #virtual-controls {
+        /* Mobile Side Buttons */
+        .side-button {
             display: none;
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            z-index: 5;
+            touch-action: none;
+            cursor: pointer;
+            transition: background 0.15s;
         }
 
-        @media (max-width: 768px), (max-height: 600px) {
-            #virtual-controls {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 10px;
+        @media (max-width: 768px), (max-height: 600px), (pointer: coarse) {
+            .side-button {
+                display: block;
             }
         }
 
-        .joystick-row {
-            display: flex;
-            gap: 10px;
+        .side-button:active {
+            background: rgba(76, 175, 80, 0.3);
         }
 
-        .joystick-btn {
-            width: 60px;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.3);
-            border: 3px solid rgba(255, 255, 255, 0.6);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            user-select: none;
-            touch-action: none;
-            transition: background 0.1s;
-        }
-
-        .joystick-btn:active {
-            background: rgba(76, 175, 80, 0.6);
-            transform: scale(0.95);
-        }
-
-        .joystick-btn.pressed {
-            background: rgba(76, 175, 80, 0.8);
+        .side-button.pressed {
+            background: rgba(76, 175, 80, 0.4);
             border-color: #4CAF50;
+        }
+
+        #btn-left {
+            left: 0;
+        }
+
+        #btn-right {
+            right: 0;
+        }
+
+        .side-button-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 48px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        #btn-left .side-button-icon {
+            left: 15px;
+        }
+
+        #btn-right .side-button-icon {
+            right: 15px;
         }
     </style>
 </head>
@@ -169,27 +173,22 @@
             </div>
             <div id="progress-text">0%</div>
         </div>
+        <!-- Mobile Side Buttons -->
+        <div class="side-button" id="btn-left">
+            <div class="side-button-icon">←</div>
+        </div>
+        <div class="side-button" id="btn-right">
+            <div class="side-button-icon">→</div>
+        </div>
     </div>
     
     <div class="instructions">
         <h2>🚪 The Last Step</h2>
         <p>Desktop: <strong>← →</strong> to move, <strong>SPACE</strong> to jump</p>
-        <p>Mobile: Use on-screen buttons</p>
+        <p>Mobile: <strong>Tap screen</strong> to jump, use <strong>side buttons</strong> to move</p>
         <p>Reach the <strong>GOLDEN DOOR</strong> at 100%</p>
         <p class="warning">⚠️ You can SEE the end... but can you reach it?</p>
         <p><small>The last 1% is where legends are made... or broken</small></p>
-    </div>
-
-    <!-- Virtual Controls for Mobile -->
-    <div id="virtual-controls">
-        <div class="joystick-row">
-            <div class="joystick-btn" id="btn-up">↑</div>
-        </div>
-        <div class="joystick-row">
-            <div class="joystick-btn" id="btn-left">←</div>
-            <div class="joystick-btn" id="btn-jump">JUMP</div>
-            <div class="joystick-btn" id="btn-right">→</div>
-        </div>
     </div>
 
     <script>
@@ -714,49 +713,56 @@
         document.addEventListener("keyup", onKeyUp);
         canvas.addEventListener("click", onClick);
 
-        // Virtual Joystick for Mobile
+        // Mobile Touch Controls
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
-        const btnJump = document.getElementById('btn-jump');
-        const btnUp = document.getElementById('btn-up');
 
-        function setupVirtualButton(btn, key, action) {
+        // Side buttons for movement
+        function setupSideButton(btn, key) {
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 btn.classList.add('pressed');
-                if (key) game.keys[key] = true;
-                if (action) action();
+                game.keys[key] = true;
             }, { passive: false });
 
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 btn.classList.remove('pressed');
-                if (key) game.keys[key] = false;
+                game.keys[key] = false;
             }, { passive: false });
 
             btn.addEventListener('touchcancel', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 btn.classList.remove('pressed');
-                if (key) game.keys[key] = false;
+                game.keys[key] = false;
             }, { passive: false });
         }
 
-        setupVirtualButton(btnLeft, 'ArrowLeft', null);
-        setupVirtualButton(btnRight, 'ArrowRight', null);
-        setupVirtualButton(btnJump, null, () => {
-            if (game.gameState === "START") {
-                game.start();
-            } else if (game.gameState === "PLAYING") {
-                game.player.jump();
-            } else if (game.gameState === "DEAD" || game.gameState === "WON") {
-                game.start();
+        setupSideButton(btnLeft, 'ArrowLeft');
+        setupSideButton(btnRight, 'ArrowRight');
+
+        // Canvas tap = JUMP
+        canvas.addEventListener('touchend', (e) => {
+            // Check if touch was on canvas (not on side buttons)
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            const x = touch.clientX - rect.left;
+            
+            // Only jump if touch was in the middle area (not on side buttons)
+            if (x > 80 && x < rect.width - 80) {
+                e.preventDefault();
+                if (game.gameState === "START") {
+                    game.start();
+                } else if (game.gameState === "PLAYING") {
+                    game.player.jump();
+                } else if (game.gameState === "DEAD" || game.gameState === "WON") {
+                    game.start();
+                }
             }
-        });
-        setupVirtualButton(btnUp, null, () => {
-            if (game.gameState === "PLAYING") {
-                game.player.jump();
-            }
-        });
+        }, { passive: false });
 
         // Start game loop
         requestAnimationFrame(gameLoop);
