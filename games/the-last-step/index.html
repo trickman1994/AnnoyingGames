@@ -2,16 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Last Step - Game Arcade</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
         body {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
         }
         
         #game-container {
@@ -19,12 +30,17 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             border-radius: 10px;
             overflow: hidden;
-            margin-top: 20px;
+            margin: 10px;
+            max-width: 100vw;
+            max-height: 100vh;
         }
         
         #gameCanvas {
             display: block;
             background: #2c3e50;
+            touch-action: none;
+            max-width: 100%;
+            max-height: 100%;
         }
         
         #progress-bar {
@@ -87,6 +103,58 @@
             font-size: 14px;
             margin-top: 10px;
         }
+
+        /* Virtual Joystick for Mobile */
+        #virtual-controls {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px), (max-height: 600px) {
+            #virtual-controls {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+        }
+
+        .joystick-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .joystick-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: none;
+            transition: background 0.1s;
+        }
+
+        .joystick-btn:active {
+            background: rgba(76, 175, 80, 0.6);
+            transform: scale(0.95);
+        }
+
+        .joystick-btn.pressed {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -105,10 +173,23 @@
     
     <div class="instructions">
         <h2>🚪 The Last Step</h2>
-        <p>Use <strong>← →</strong> to move, <strong>SPACE</strong> to jump</p>
+        <p>Desktop: <strong>← →</strong> to move, <strong>SPACE</strong> to jump</p>
+        <p>Mobile: Use on-screen buttons</p>
         <p>Reach the <strong>GOLDEN DOOR</strong> at 100%</p>
         <p class="warning">⚠️ You can SEE the end... but can you reach it?</p>
         <p><small>The last 1% is where legends are made... or broken</small></p>
+    </div>
+
+    <!-- Virtual Controls for Mobile -->
+    <div id="virtual-controls">
+        <div class="joystick-row">
+            <div class="joystick-btn" id="btn-up">↑</div>
+        </div>
+        <div class="joystick-row">
+            <div class="joystick-btn" id="btn-left">←</div>
+            <div class="joystick-btn" id="btn-jump">JUMP</div>
+            <div class="joystick-btn" id="btn-right">→</div>
+        </div>
     </div>
 
     <script>
@@ -117,8 +198,41 @@
         const progressFill = document.getElementById("progress-fill");
         const progressText = document.getElementById("progress-text");
 
-        const CANVAS_WIDTH = 500;
-        const CANVAS_HEIGHT = 700;
+        // Responsive canvas setup
+        const BASE_WIDTH = 500;
+        const BASE_HEIGHT = 700;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth - 40;
+            const maxHeight = window.innerHeight - 250;
+            
+            let width = Math.min(BASE_WIDTH, maxWidth);
+            let height = width / ASPECT_RATIO;
+            
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 100);
+        });
         const GRAVITY = 0.7;
         const JUMP_STRENGTH = -18;
         const MOVE_SPEED = 6;
@@ -599,6 +713,50 @@
         document.addEventListener("keydown", onKeyDown);
         document.addEventListener("keyup", onKeyUp);
         canvas.addEventListener("click", onClick);
+
+        // Virtual Joystick for Mobile
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnJump = document.getElementById('btn-jump');
+        const btnUp = document.getElementById('btn-up');
+
+        function setupVirtualButton(btn, key, action) {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                btn.classList.add('pressed');
+                if (key) game.keys[key] = true;
+                if (action) action();
+            }, { passive: false });
+
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                btn.classList.remove('pressed');
+                if (key) game.keys[key] = false;
+            }, { passive: false });
+
+            btn.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                btn.classList.remove('pressed');
+                if (key) game.keys[key] = false;
+            }, { passive: false });
+        }
+
+        setupVirtualButton(btnLeft, 'ArrowLeft', null);
+        setupVirtualButton(btnRight, 'ArrowRight', null);
+        setupVirtualButton(btnJump, null, () => {
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.player.jump();
+            } else if (game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
+            }
+        });
+        setupVirtualButton(btnUp, null, () => {
+            if (game.gameState === "PLAYING") {
+                game.player.jump();
+            }
+        });
 
         // Start game loop
         requestAnimationFrame(gameLoop);

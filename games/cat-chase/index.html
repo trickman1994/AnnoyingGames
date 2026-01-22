@@ -2,16 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cat Chase - Game Arcade</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
         body {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
         }
         
         #game-container {
@@ -19,13 +30,18 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             border-radius: 10px;
             overflow: hidden;
-            margin-top: 20px;
+            margin: 10px;
+            max-width: 100vw;
+            max-height: 100vh;
         }
         
         #gameCanvas {
             display: block;
             background: #2d5016;
             cursor: default;
+            touch-action: none;
+            max-width: 100%;
+            max-height: 100%;
         }
         
         #game-info {
@@ -96,7 +112,8 @@
         <p class="warning">⚡ Kill cats by touching their TAIL (purple circle)</p>
         <p><small>Dead cats spawn 4 new cheese traps nearby!</small></p>
         <p><strong>🏆 Survive for 30 seconds to WIN!</strong></p>
-        <p><small>Click to start • Press R to restart</small></p>
+        <p><small>Desktop: Move mouse • Mobile: Touch and DRAG finger to move</small></p>
+        <p><small>Click/Tap to start • Press R or Tap to restart</small></p>
     </div>
 
     <script>
@@ -105,8 +122,42 @@
         const timerDisplay = document.getElementById("timer");
         const catsAliveDisplay = document.getElementById("cats-alive");
 
-        const CANVAS_WIDTH = 800;
-        const CANVAS_HEIGHT = 600;
+        // Responsive canvas setup
+        const BASE_WIDTH = 800;
+        const BASE_HEIGHT = 600;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth - 40;
+            const maxHeight = window.innerHeight - 100;
+            
+            let width = Math.min(BASE_WIDTH, maxWidth);
+            let height = width / ASPECT_RATIO;
+            
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 100);
+        });
+
         const WIN_TIME = 30; // 30 seconds to survive
 
         class Mouse {
@@ -179,7 +230,7 @@
                 this.alive = true;
             }
 
-            update(mouse) {
+            update(mouse, deltaMultiplier = 1.0) {
                 if (!this.alive) return;
 
                 // Chase the mouse
@@ -188,8 +239,8 @@
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance > 0) {
-                    this.x += (dx / distance) * this.speed;
-                    this.y += (dy / distance) * this.speed;
+                    this.x += (dx / distance) * this.speed * deltaMultiplier;
+                    this.y += (dy / distance) * this.speed * deltaMultiplier;
                     
                     // Smooth angle turning (slower rotation)
                     const targetAngle = Math.atan2(dy, dx);
@@ -200,7 +251,7 @@
                     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
                     
                     // Lerp the angle (0.03 = much slower turning, allows tail catching)
-                    this.angle += angleDiff * 0.03;
+                    this.angle += angleDiff * 0.03 * deltaMultiplier;
                 }
 
                 // Animate tail
@@ -415,10 +466,10 @@
                 }
             }
 
-            update() {
+            update(deltaMultiplier = 1.0) {
                 if (this.gameState !== "PLAYING") return;
 
-                this.time -= 1/60;
+                this.time -= (1/60) * deltaMultiplier;
                 timerDisplay.textContent = Math.max(0, this.time).toFixed(1) + "s";
 
                 // Update mouse
@@ -429,7 +480,7 @@
                 catsAliveDisplay.textContent = `🐱 Cats: ${aliveCats}`;
 
                 for (const cat of this.cats) {
-                    cat.update(this.mouse);
+                    cat.update(this.mouse, deltaMultiplier);
 
                     // Check if mouse touched the tail
                     if (cat.checkTailHit(this.mouse)) {
@@ -456,7 +507,7 @@
 
                 // Update particles
                 for (let i = this.particles.length - 1; i >= 0; i--) {
-                    this.particles[i].update();
+                    this.particles[i].update(deltaMultiplier);
                     if (this.particles[i].life <= 0) {
                         this.particles.splice(i, 1);
                     }
@@ -497,11 +548,11 @@
                         maxLife: 60,
                         color: color,
                         size: 3 + Math.random() * 3,
-                        update() {
-                            this.x += this.vx;
-                            this.y += this.vy;
-                            this.vy += 0.2; // Gravity
-                            this.life--;
+                        update(deltaMultiplier = 1.0) {
+                            this.x += this.vx * deltaMultiplier;
+                            this.y += this.vy * deltaMultiplier;
+                            this.vy += 0.2 * deltaMultiplier; // Gravity
+                            this.life -= deltaMultiplier;
                         }
                     });
                 }
@@ -551,11 +602,11 @@
                 } else if (this.gameState === "DEAD") {
                     this.drawText("🐱 CAUGHT BY A CAT! 🐱", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF6B6B");
                     this.drawText("The cats got you!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
-                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                    this.drawText("Press R or Tap to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 YOU SURVIVED! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
                     this.drawText("The mouse escapes!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
-                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                    this.drawText("Press R or Tap to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
                 }
             }
 
@@ -576,19 +627,88 @@
 
         // Initialize game
         const game = new Game();
+        let lastTime = performance.now();
+        const TARGET_FPS = 60;
+        const TARGET_FRAME_TIME = 1000 / TARGET_FPS;
 
-        // Game loop
-        function gameLoop() {
-            game.update();
+        // Game loop with frame rate independence
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Normalize to 60 FPS (1.0 = 60 FPS, 2.0 = 30 FPS, 0.5 = 120 FPS)
+            const deltaMultiplier = deltaTime / TARGET_FRAME_TIME;
+            
+            game.update(deltaMultiplier);
             game.draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // Event handlers
-        function onMouseMove(event) {
+        // Unified input handler for mouse and touch
+        let isTouching = false;
+        let touchStartTime = 0;
+
+        function getInputPosition(event) {
             const rect = canvas.getBoundingClientRect();
-            game.mouseX = event.clientX - rect.left;
-            game.mouseY = event.clientY - rect.top;
+            let clientX, clientY;
+            
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else if (event.changedTouches && event.changedTouches.length > 0) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+            
+            const x = (clientX - rect.left) / scale;
+            const y = (clientY - rect.top) / scale;
+            return { x, y };
+        }
+
+        // Mouse events (desktop)
+        function onMouseMove(event) {
+            const pos = getInputPosition(event);
+            game.mouseX = pos.x;
+            game.mouseY = pos.y;
+        }
+
+        // Touch events (mobile) - need to keep finger DOWN and drag
+        function onTouchStart(event) {
+            event.preventDefault();
+            isTouching = true;
+            touchStartTime = Date.now();
+            const pos = getInputPosition(event);
+            game.mouseX = pos.x;
+            game.mouseY = pos.y;
+
+            // Start game if in START state
+            if (game.gameState === "START") {
+                game.start();
+            }
+        }
+
+        function onTouchMove(event) {
+            event.preventDefault();
+            if (isTouching) {
+                const pos = getInputPosition(event);
+                game.mouseX = pos.x;
+                game.mouseY = pos.y;
+            }
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            const touchDuration = Date.now() - touchStartTime;
+            
+            // Quick tap (less than 300ms) on game over/won screen restarts
+            if (touchDuration < 300 && (game.gameState === "DEAD" || game.gameState === "WON")) {
+                game.start();
+            }
+            
+            isTouching = false;
         }
 
         function onKeyDown(event) {
@@ -607,15 +727,26 @@
 
             if (game.gameState === "START") {
                 game.start();
+            } else if (game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
             }
-            // DEAD and WON now only restart with 'R' key
         }
 
         // Attach event listeners
+        // Desktop: mouse events
         canvas.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("keydown", onKeyDown);
         canvas.addEventListener("click", onClick);
-        document.body.addEventListener("click", onClick);
+        
+        // Mobile: touch events (must keep finger down and drag!)
+        canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+        canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        
+        // Keyboard
+        document.addEventListener("keydown", onKeyDown);
+        
+        // Prevent context menu on long press
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
         // Start game loop
         requestAnimationFrame(gameLoop);
