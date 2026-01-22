@@ -12,7 +12,6 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            cursor: none;
         }
         
         #game-container {
@@ -21,13 +20,12 @@
             border-radius: 10px;
             overflow: hidden;
             margin-top: 20px;
-            cursor: none;
         }
         
         #gameCanvas {
             display: block;
             background: #1a1a1a;
-            cursor: none;
+            cursor: default;
         }
         
         #game-info {
@@ -391,12 +389,12 @@
                     this.drawText("YOU TOUCHED RED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF4444");
                     this.drawText(`Survived: ${this.time.toFixed(2)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
                     this.drawText(`Deaths: ${this.deaths}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
-                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 YOU WON! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
                     this.drawText("You actually did it!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
                     this.drawText(`After ${this.deaths} deaths`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
-                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
                 }
             }
 
@@ -446,9 +444,10 @@
                 return;
             }
 
-            if (game.gameState === "START" || game.gameState === "DEAD" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             }
+            // DEAD and WON now only restart with 'R' key
         }
 
         // Attach event listeners

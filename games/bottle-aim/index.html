@@ -26,7 +26,7 @@
         #gameCanvas {
             display: block;
             background: #F5E6D3;
-            cursor: none;
+            cursor: crosshair;
         }
         
         #game-info {
@@ -544,12 +544,12 @@
                     this.drawText("💦 OH NO! 💦", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
                     this.drawText("You peed on both feet!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "#000");
                     this.drawText(`Bottle filled: ${Math.floor(this.bottle.fill)}%`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "24px Arial", "#666");
-                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 SUCCESS! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "52px Arial", "#FFD700");
                     this.drawText("Bottle filled 100%!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "32px Arial", "#4CAF50");
                     this.drawText("Clean feet, full bottle!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45, "24px Arial", "#000");
-                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 85, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 85, "18px Arial", "#888");
                 }
             }
 
@@ -590,9 +590,10 @@
                 return;
             }
 
-            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             }
+            // LOST and WON now only restart with 'R' key
         }
 
         function onKeyDown(event) {

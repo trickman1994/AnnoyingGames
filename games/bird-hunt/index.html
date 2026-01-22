@@ -703,13 +703,13 @@
                     this.drawText("⏰ TIME'S UP! ⏰", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
                     this.drawText(`Found ${this.birdsFound}/${NUM_BIRDS} birds`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "#000");
                     this.drawText("The birds were too fast!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "22px Arial", "#666");
-                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 AMAZING! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 70, "52px Arial", "#FFD700");
                     this.drawText(`Found all ${NUM_BIRDS} birds!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "32px Arial", "#4CAF50");
                     this.drawText(`Time left: ${this.time.toFixed(1)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35, "24px Arial", "#000");
                     this.drawText("You're a master bird hunter!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "20px Arial", "#666");
-                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105, "18px Arial", "#888");
                 }
             }
 
@@ -754,7 +754,7 @@
             const clickX = event.clientX - rect.left;
             const clickY = event.clientY - rect.top;
 
-            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             } else if (game.gameState === "PLAYING") {
                 // Check if clicked on a tree
@@ -765,6 +765,7 @@
                     }
                 }
             }
+            // LOST and WON now only restart with 'R' key
         }
 
         function onKeyDown(event) {

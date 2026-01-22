@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steady Hand - Game Arcade</title>
+    <title>Steady Hand - AI Own You</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
         body {
@@ -12,7 +12,6 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            cursor: none;
         }
         
         #game-container {
@@ -21,7 +20,6 @@
             border-radius: 10px;
             overflow: hidden;
             margin-top: 20px;
-            cursor: none;
         }
         
         #gameCanvas {
@@ -108,16 +106,16 @@
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div id="timer-display">30.00</div>
+        <div id="timer-display">25.00</div>
         <div id="level-display">Level 1/5</div>
     </div>
     
     <div class="instructions">
         <h2>🎯 Steady Hand</h2>
-        <p>Guide the <strong>GREEN BALL</strong> through the narrow path to reach the goal</p>
-        <p><strong>DO NOT</strong> touch the edges • <strong>DO NOT</strong> leave the path</p>
-        <p class="warning">⚠️ Beat the countdown! Path gets narrower each level!</p>
-        <p><small>The ball follows your mouse with a slight delay - requires surgical precision!</small></p>
+        <p>Guide the <strong>TINY GREEN BALL</strong> through the ultra-narrow path to reach the goal</p>
+        <p><strong>DO NOT</strong> touch the edges • <strong>DO NOT</strong> leave the path • <strong>AVOID</strong> the red obstacles</p>
+        <p class="warning">⚠️ Beat the countdown! Narrower paths, less time, random turbulence!</p>
+        <p><small>Ball has lag + random jitter = NIGHTMARE difficulty! Good luck... you'll need it 😈</small></p>
     </div>
 
     <script>
@@ -133,7 +131,7 @@
             constructor(level) {
                 this.level = level;
                 this.points = [];
-                this.width = Math.max(30, 80 - level * 8); // Gets narrower each level
+                this.width = Math.max(20, 60 - level * 6); // Gets MUCH narrower each level
                 this.maxReachedSegment = 0; // For tracking progress and preventing shortcuts
                 this.generatePath();
             }
@@ -412,29 +410,32 @@
                 this.mouseY = 0;
                 this.ballX = 0;
                 this.ballY = 0;
-                this.gameState = "START"; // START, PLAYING, FAILED, WON, LEVEL_COMPLETE
-                this.timeLeft = 30;
+                this.gameState = "START"; // START, PLAYING, FAILED, WON, LEVEL_COMPLETE, READY_FOR_NEXT
+                this.timeLeft = 25;
                 this.started = false;
                 this.progress = 0;
-                this.ballRadius = 10;
+                this.ballRadius = 8; // Smaller ball = harder precision!
                 this.shakeMagnitude = 0;
                 this.totalScore = 0;
                 this.levelScores = [];
+                this.turbulenceX = 0;
+                this.turbulenceY = 0;
+                this.turbulenceTimer = 0;
                 
                 this.generateObstacles();
             }
 
             generateObstacles() {
                 this.obstacles = [];
-                if (this.level >= 3) {
-                    // Add obstacles from level 3+
-                    const numObstacles = this.level - 2;
+                if (this.level >= 2) {
+                    // Add obstacles from level 2+ (earlier than before!)
+                    const numObstacles = (this.level - 1) * 2; // More obstacles per level
                     for (let i = 0; i < numObstacles; i++) {
                         this.obstacles.push(new Obstacle(
                             200 + Math.random() * 400,
                             150 + Math.random() * 300,
-                            15 + Math.random() * 10,
-                            0.5 + this.level * 0.3
+                            12 + Math.random() * 8, // Smaller obstacles (harder to avoid)
+                            1.0 + this.level * 0.5 // Much faster obstacles
                         ));
                     }
                 }
@@ -454,20 +455,27 @@
                 
                 this.path = new Path(this.level);
                 this.generateObstacles();
-                this.timeLeft = 30 - (this.level - 1) * 2; // Less time each level
+                this.timeLeft = 25 - (this.level - 1) * 3; // MUCH less time each level!
                 this.progress = 0;
                 this.started = false;
-                this.ballX = this.path.startPoint.x;
-                this.ballY = this.path.startPoint.y;
-                this.gameState = "PLAYING";
+                // Place ball at center of canvas, NOT at start point!
+                this.ballX = CANVAS_WIDTH / 2;
+                this.ballY = CANVAS_HEIGHT / 2;
+                this.gameState = "READY_FOR_NEXT"; // Wait for another click to start!
+                this.turbulenceX = 0;
+                this.turbulenceY = 0;
+                this.turbulenceTimer = 0;
                 levelDisplay.textContent = `Level ${this.level}/${this.maxLevel}`;
+                // Update timer display for new level
+                timerDisplay.textContent = this.timeLeft.toFixed(2);
+                timerDisplay.className = "";
             }
 
             start() {
                 this.level = 1;
                 this.path = new Path(this.level);
                 this.generateObstacles();
-                this.timeLeft = 30;
+                this.timeLeft = 25; // Less starting time!
                 this.gameState = "PLAYING";
                 this.started = false;
                 this.progress = 0;
@@ -476,18 +484,45 @@
                 this.levelScores = [];
                 this.ballX = this.path.startPoint.x;
                 this.ballY = this.path.startPoint.y;
+                this.turbulenceX = 0;
+                this.turbulenceY = 0;
+                this.turbulenceTimer = 0;
                 levelDisplay.textContent = `Level ${this.level}/${this.maxLevel}`;
             }
 
             update(deltaTime) {
-                if (this.gameState !== "PLAYING") return;
+                // Allow ball movement in READY_FOR_NEXT state too
+                if (this.gameState !== "PLAYING" && this.gameState !== "READY_FOR_NEXT") return;
 
-                // Ball smoothly follows mouse
+                // Ball smoothly follows mouse with MORE LAG
                 const dx = this.mouseX - this.ballX;
                 const dy = this.mouseY - this.ballY;
-                const smoothing = 0.12; // Smooth following
+                const smoothing = 0.08; // Even less smooth (was 0.12)
                 this.ballX += dx * smoothing;
                 this.ballY += dy * smoothing;
+
+                // If in READY_FOR_NEXT state, just move the ball, don't start game logic yet
+                if (this.gameState === "READY_FOR_NEXT") {
+                    // Update timer display but don't countdown
+                    timerDisplay.textContent = this.timeLeft.toFixed(2);
+                    timerDisplay.className = "";
+                    return;
+                }
+
+                // Now we're in PLAYING state
+                // Random turbulence (makes precise control MUCH harder!)
+                if (this.started) {
+                    this.turbulenceTimer += deltaTime;
+                    if (this.turbulenceTimer > 0.1) { // Update turbulence every 0.1 seconds
+                        this.turbulenceTimer = 0;
+                        const turbulenceStrength = 0.3 + this.level * 0.15; // Gets worse each level
+                        this.turbulenceX = (Math.random() - 0.5) * turbulenceStrength;
+                        this.turbulenceY = (Math.random() - 0.5) * turbulenceStrength;
+                    }
+                    // Apply turbulence
+                    this.ballX += this.turbulenceX;
+                    this.ballY += this.turbulenceY;
+                }
 
                 // Check if ball is near start to begin
                 if (!this.started) {
@@ -583,8 +618,8 @@
                     obstacle.draw();
                 }
 
-                // Draw ball (always visible)
-                if (this.gameState === "PLAYING") {
+                // Draw ball (visible during PLAYING and READY_FOR_NEXT)
+                if (this.gameState === "PLAYING" || this.gameState === "READY_FOR_NEXT") {
                     // Ball shadow
                     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
                     ctx.beginPath();
@@ -616,7 +651,7 @@
                     ctx.fill();
 
                     // Draw line from ball to mouse (shows control)
-                    if (!this.started) {
+                    if (!this.started || this.gameState === "READY_FOR_NEXT") {
                         ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
                         ctx.lineWidth = 2;
                         ctx.setLineDash([5, 5]);
@@ -625,6 +660,31 @@
                         ctx.lineTo(this.mouseX, this.mouseY);
                         ctx.stroke();
                         ctx.setLineDash([]);
+                        
+                        // In READY_FOR_NEXT, draw arrow pointing to START
+                        if (this.gameState === "READY_FOR_NEXT") {
+                            const startX = this.path.startPoint.x;
+                            const startY = this.path.startPoint.y;
+                            const angle = Math.atan2(startY - this.ballY, startX - this.ballX);
+                            
+                            ctx.strokeStyle = "rgba(76, 175, 80, 0.8)";
+                            ctx.lineWidth = 3;
+                            ctx.setLineDash([10, 5]);
+                            ctx.beginPath();
+                            ctx.moveTo(this.ballX, this.ballY);
+                            ctx.lineTo(startX, startY);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            // Arrow head
+                            ctx.fillStyle = "rgba(76, 175, 80, 0.8)";
+                            ctx.beginPath();
+                            ctx.moveTo(startX, startY);
+                            ctx.lineTo(startX - 15 * Math.cos(angle - Math.PI / 6), startY - 15 * Math.sin(angle - Math.PI / 6));
+                            ctx.lineTo(startX - 15 * Math.cos(angle + Math.PI / 6), startY - 15 * Math.sin(angle + Math.PI / 6));
+                            ctx.closePath();
+                            ctx.fill();
+                        }
                     }
                 }
 
@@ -640,11 +700,16 @@
                     this.drawText("FAILED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "64px Arial", "#e74c3c");
                     this.drawText("Your hand wasn't steady enough", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
                     this.drawText(`Level ${this.level} • Progress: ${(this.progress * 100).toFixed(1)}%`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
-                    this.drawText("Press R or Click to retry", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to retry", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "LEVEL_COMPLETE") {
                     this.drawText(`Level ${this.level} Complete!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
                     this.drawText(`Time remaining: ${this.timeLeft.toFixed(2)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
                     this.drawText("Click for next level", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60, "20px Arial", "#4CAF50");
+                } else if (this.gameState === "READY_FOR_NEXT") {
+                    this.drawText(`Level ${this.level} - Get Ready!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100, "48px Arial", "#4CAF50");
+                    this.drawText("1. Click anywhere to continue", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, "22px Arial", "white");
+                    this.drawText("2. Guide the GREEN BALL to START", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "22px Arial", "white");
+                    this.drawText("3. Timer starts when you reach START", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#FFD700");
                 } else if (this.gameState === "WON") {
                     // Draw victory screen with score breakdown
                     this.drawText("🏆 PERFECT PRECISION! 🏆", CANVAS_WIDTH / 2, 80, "42px Arial", "#FFD700");
@@ -672,7 +737,7 @@
                     else if (this.totalScore > 4000) rank = "Professional";
                     
                     this.drawText(`Rank: ${rank}`, CANVAS_WIDTH / 2, yPos + 95, "22px Arial", "#4CAF50");
-                    this.drawText("Click or Press R to play again", CANVAS_WIDTH / 2, yPos + 135, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, yPos + 135, "18px Arial", "#888");
                 }
             }
 
@@ -719,6 +784,12 @@
                     game.start();
                 }
             }
+            // Space or Enter to start level when ready
+            if (event.key === " " || event.key === "Enter") {
+                if (game.gameState === "READY_FOR_NEXT") {
+                    game.gameState = "PLAYING";
+                }
+            }
         }
 
         function onClick(event) {
@@ -727,11 +798,16 @@
                 return;
             }
 
-            if (game.gameState === "START" || game.gameState === "FAILED" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             } else if (game.gameState === "LEVEL_COMPLETE") {
                 game.nextLevel();
+            } else if (game.gameState === "READY_FOR_NEXT") {
+                // Change to PLAYING, but started is already false from nextLevel()
+                // So player must guide ball to start before game begins
+                game.gameState = "PLAYING";
             }
+            // FAILED and WON now only restart with 'R' key
         }
 
         // Attach event listeners

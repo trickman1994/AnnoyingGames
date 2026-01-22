@@ -67,7 +67,7 @@
         }
 
         #stats div {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
             color: #333;
             margin: 5px 0;
@@ -75,11 +75,22 @@
 
         #score {
             color: #4CAF50;
-            font-size: 32px;
+            font-size: 28px;
         }
 
         #wave {
             color: #FF9800;
+            font-size: 20px;
+        }
+
+        #kills {
+            color: #9C27B0;
+            font-size: 16px;
+        }
+
+        #remaining {
+            color: #FF5722;
+            font-size: 16px;
         }
 
         #health {
@@ -92,8 +103,10 @@
     
     <div id="stats">
         <div>Score: <span id="score">0</span></div>
-        <div id="wave">Wave: 1</div>
-        <div id="health">Lives: ❤️❤️❤️</div>
+        <div id="wave">Wave: 1/3</div>
+        <div id="kills">Killed: <span>0</span></div>
+        <div id="remaining">Remaining: <span>0</span></div>
+        <div id="health">Lives: ❤️❤️❤️❤️❤️</div>
     </div>
 
     <div id="gameContainer">
@@ -112,6 +125,8 @@
         const scoreDisplay = document.getElementById("score");
         const waveDisplay = document.getElementById("wave");
         const healthDisplay = document.getElementById("health");
+        const killsDisplay = document.querySelector("#kills span");
+        const remainingDisplay = document.querySelector("#remaining span");
 
         class Pie {
             constructor() {
@@ -191,8 +206,9 @@
         class Fly {
             constructor(wave) {
                 this.wave = wave;
+                this.type = "fly";
                 this.spawnFromEdge();
-                this.speed = 1 + wave * 0.2; // Gets faster each wave
+                this.speed = 0.25; // Reduced to 1/4 speed
                 this.size = 8;
                 this.alive = true;
                 this.targetX = CANVAS_WIDTH / 2;
@@ -335,67 +351,398 @@
             }
         }
 
+        class Mosquito {
+            constructor(wave) {
+                this.wave = wave;
+                this.type = "mosquito";
+                this.spawnFromEdge();
+                this.speed = 0.25; // Reduced to 1/4 speed
+                this.size = 6; // Smaller = harder to hit
+                this.alive = true;
+                this.targetX = CANVAS_WIDTH / 2;
+                this.targetY = CANVAS_HEIGHT / 2;
+                this.wingAngle = 0;
+                this.erraticTimer = 0;
+                this.erraticX = 0;
+                this.erraticY = 0;
+                this.buzzTimer = Math.random() * Math.PI * 2;
+                this.zigzagTimer = 0;
+            }
+
+            spawnFromEdge() {
+                const edge = Math.floor(Math.random() * 4);
+                switch(edge) {
+                    case 0: this.x = Math.random() * CANVAS_WIDTH; this.y = -20; break;
+                    case 1: this.x = CANVAS_WIDTH + 20; this.y = Math.random() * CANVAS_HEIGHT; break;
+                    case 2: this.x = Math.random() * CANVAS_WIDTH; this.y = CANVAS_HEIGHT + 20; break;
+                    case 3: this.x = -20; this.y = Math.random() * CANVAS_HEIGHT; break;
+                }
+            }
+
+            update(pie) {
+                if (!this.alive) return;
+
+                this.wingAngle += 0.7; // Faster wing flap
+                this.buzzTimer += 0.3;
+                this.zigzagTimer += 0.15;
+
+                // MUCH more erratic changes - bigger range, more frequent!
+                this.erraticTimer++;
+                if (this.erraticTimer > 12 + Math.random() * 20) { // More frequent changes
+                    this.erraticTimer = 0;
+                    this.erraticX = (Math.random() - 0.5) * 200; // Bigger random offset
+                    this.erraticY = (Math.random() - 0.5) * 200;
+                }
+
+                const targetX = pie.x + this.erraticX;
+                const targetY = pie.y + this.erraticY;
+                
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Bigger zigzag movement
+                const zigzagX = Math.sin(this.zigzagTimer) * 4;
+                const zigzagY = Math.cos(this.zigzagTimer) * 4;
+
+                if (distance > 5) {
+                    this.x += (dx / distance) * this.speed + Math.cos(this.buzzTimer) * 2.5 + zigzagX;
+                    this.y += (dy / distance) * this.speed + Math.sin(this.buzzTimer) * 2.5 + zigzagY;
+                }
+
+                // More frequent and BIGGER sudden jumps
+                if (Math.random() < 0.05) { // 5% chance (was 4%)
+                    this.x += (Math.random() - 0.5) * 60; // Bigger jumps
+                    this.y += (Math.random() - 0.5) * 60;
+                }
+            }
+
+            draw() {
+                if (!this.alive) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Smaller shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+                ctx.beginPath();
+                ctx.ellipse(1, 2, this.size * 0.6, this.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Thin wings
+                const wingOffset = Math.sin(this.wingAngle) * 0.6;
+                ctx.fillStyle = "rgba(200, 230, 255, 0.6)";
+                ctx.beginPath();
+                ctx.ellipse(-this.size * 0.6, -wingOffset * 2, this.size * 0.6, this.size * 0.4, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(this.size * 0.6, -wingOffset * 2, this.size * 0.6, this.size * 0.4, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Thin body
+                ctx.fillStyle = "#444";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.4, this.size * 1.2, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Proboscis (needle)
+                ctx.strokeStyle = "#222";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size * 1.2);
+                ctx.lineTo(0, -this.size * 2);
+                ctx.stroke();
+
+                // Eyes
+                ctx.fillStyle = "red";
+                ctx.beginPath();
+                ctx.arc(-1, -this.size * 0.8, 1.5, 0, Math.PI * 2);
+                ctx.arc(1, -this.size * 0.8, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            checkClick(mouseX, mouseY) {
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.size * 2.5; // Slightly larger hit box
+            }
+
+            checkPieCollision(pie) {
+                const dx = this.x - pie.x;
+                const dy = this.y - pie.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < pie.radius + this.size;
+            }
+
+            die() {
+                this.alive = false;
+            }
+        }
+
+        class Wasp {
+            constructor(wave) {
+                this.wave = wave;
+                this.type = "wasp";
+                this.spawnFromEdge();
+                this.speed = 0.25; // Reduced to 1/4 speed
+                this.size = 10;
+                this.alive = true;
+                this.targetX = CANVAS_WIDTH / 2;
+                this.targetY = CANVAS_HEIGHT / 2;
+                this.wingAngle = 0;
+                this.erraticTimer = 0;
+                this.erraticX = 0;
+                this.erraticY = 0;
+                this.buzzTimer = Math.random() * Math.PI * 2;
+                this.aggressiveTimer = 0;
+                this.dashSpeed = 0;
+            }
+
+            spawnFromEdge() {
+                const edge = Math.floor(Math.random() * 4);
+                switch(edge) {
+                    case 0: this.x = Math.random() * CANVAS_WIDTH; this.y = -20; break;
+                    case 1: this.x = CANVAS_WIDTH + 20; this.y = Math.random() * CANVAS_HEIGHT; break;
+                    case 2: this.x = Math.random() * CANVAS_WIDTH; this.y = CANVAS_HEIGHT + 20; break;
+                    case 3: this.x = -20; this.y = Math.random() * CANVAS_HEIGHT; break;
+                }
+            }
+
+            update(pie) {
+                if (!this.alive) return;
+
+                this.wingAngle += 0.8;
+                this.buzzTimer += 0.5;
+                this.aggressiveTimer++;
+
+                // Sudden aggressive dashes - more frequent, but no speed boost, just direction change
+                if (this.aggressiveTimer > 40 + Math.random() * 60) { // More frequent dashes
+                    this.aggressiveTimer = 0;
+                    // Dash creates a sudden direction change, not speed
+                    this.erraticX = (Math.random() - 0.5) * 300; // Massive offset
+                    this.erraticY = (Math.random() - 0.5) * 300;
+                }
+
+                // EXTREMELY erratic movement - huge range, very frequent!
+                this.erraticTimer++;
+                if (this.erraticTimer > 8 + Math.random() * 15) { // Very frequent changes
+                    this.erraticTimer = 0;
+                    this.erraticX = (Math.random() - 0.5) * 250; // Massive random offset
+                    this.erraticY = (Math.random() - 0.5) * 250;
+                }
+
+                const targetX = pie.x + this.erraticX;
+                const targetY = pie.y + this.erraticY;
+                
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 5) {
+                    this.x += (dx / distance) * this.speed + Math.cos(this.buzzTimer) * 3.5;
+                    this.y += (dy / distance) * this.speed + Math.sin(this.buzzTimer) * 3.5;
+                }
+
+                // VERY frequent and MASSIVE unpredictable jumps
+                if (Math.random() < 0.08) { // 8% chance (very frequent!)
+                    this.x += (Math.random() - 0.5) * 100; // Huge jumps
+                    this.y += (Math.random() - 0.5) * 100;
+                }
+            }
+
+            draw() {
+                if (!this.alive) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.beginPath();
+                ctx.ellipse(2, 3, this.size * 0.8, this.size * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Wings
+                const wingOffset = Math.sin(this.wingAngle) * 0.7;
+                ctx.fillStyle = "rgba(255, 230, 200, 0.5)";
+                ctx.beginPath();
+                ctx.ellipse(-this.size * 0.8, -wingOffset * 3, this.size * 0.9, this.size * 0.5, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(this.size * 0.8, -wingOffset * 3, this.size * 0.9, this.size * 0.5, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Body (yellow and black stripes)
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.5, this.size, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Black stripes
+                ctx.fillStyle = "#000";
+                for (let i = -2; i <= 2; i++) {
+                    ctx.fillRect(-this.size * 0.5, i * 4 - 2, this.size, 3);
+                }
+
+                // Stinger
+                ctx.fillStyle = "#222";
+                ctx.beginPath();
+                ctx.moveTo(0, this.size);
+                ctx.lineTo(-2, this.size + 5);
+                ctx.lineTo(2, this.size + 5);
+                ctx.closePath();
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(-3, -this.size * 0.6, 2, 0, Math.PI * 2);
+                ctx.arc(3, -this.size * 0.6, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            checkClick(mouseX, mouseY) {
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.size * 2;
+            }
+
+            checkPieCollision(pie) {
+                const dx = this.x - pie.x;
+                const dy = this.y - pie.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < pie.radius + this.size;
+            }
+
+            die() {
+                this.alive = false;
+            }
+        }
+
         class Game {
             constructor() {
                 this.pie = new Pie();
-                this.flies = [];
+                this.insects = []; // Changed from flies to insects
+                this.insectsOnPie = []; // Insects walking on the pie
                 this.score = 0;
                 this.wave = 1;
-                this.lives = 3;
-                this.gameState = "PLAYING"; // PLAYING, GAME_OVER
+                this.maxWaves = 3;
+                this.maxLives = 5; // Maximum lives per wave
+                this.lives = 5; // Start with 5 lives
+                this.gameState = "WAVE_ANNOUNCEMENT"; // WAVE_ANNOUNCEMENT, PLAYING, GAME_OVER, WON
                 this.spawnTimer = 0;
-                this.flySpawnRate = 120; // Frames between spawns
-                this.maxFlies = 3; // Max flies on screen at once
+                this.insectSpawnRate = 120; // Frames between spawns
+                this.maxInsects = 4; // Max insects on screen at once
                 this.bloodSplatters = [];
+                this.killsThisWave = 0;
+                this.insectsToKillThisWave = 15; // Need to kill 15 per wave
+                this.waveAnnouncementTimer = 0;
+                this.waveAnnouncementDuration = 180; // 3 seconds at 60fps
                 
-                this.spawnInitialFlies();
+                this.updateDisplays();
             }
 
-            spawnInitialFlies() {
-                for (let i = 0; i < Math.min(this.wave + 1, this.maxFlies); i++) {
-                    this.flies.push(new Fly(this.wave));
+            spawnInitialInsects() {
+                for (let i = 0; i < Math.min(this.wave + 2, this.maxInsects); i++) {
+                    this.spawnInsect();
                 }
             }
 
-            spawnFly() {
-                if (this.flies.filter(f => f.alive).length < this.maxFlies + Math.floor(this.wave / 2)) {
-                    this.flies.push(new Fly(this.wave));
+            spawnInsect() {
+                const aliveCount = this.insects.filter(i => i.alive).length;
+                if (aliveCount >= this.maxInsects + this.wave) return;
+
+                // Different insects per wave
+                let insect;
+                if (this.wave === 1) {
+                    // Wave 1: Only flies
+                    insect = new Fly(this.wave);
+                } else if (this.wave === 2) {
+                    // Wave 2: Flies + Mosquitoes
+                    insect = Math.random() < 0.5 ? new Fly(this.wave) : new Mosquito(this.wave);
+                } else if (this.wave === 3) {
+                    // Wave 3: All three types!
+                    const rand = Math.random();
+                    if (rand < 0.33) {
+                        insect = new Fly(this.wave);
+                    } else if (rand < 0.66) {
+                        insect = new Mosquito(this.wave);
+                    } else {
+                        insect = new Wasp(this.wave);
+                    }
                 }
+                
+                this.insects.push(insect);
             }
 
             update() {
-                if (this.gameState !== "PLAYING") return;
-
                 this.pie.update();
 
-                // Update flies
-                this.flies.forEach(fly => {
-                    fly.update(this.pie);
+                // Handle wave announcement
+                if (this.gameState === "WAVE_ANNOUNCEMENT") {
+                    this.waveAnnouncementTimer++;
+                    if (this.waveAnnouncementTimer >= this.waveAnnouncementDuration) {
+                        this.gameState = "PLAYING";
+                        this.waveAnnouncementTimer = 0;
+                        this.spawnInitialInsects();
+                    }
+                    return;
+                }
 
-                    // Check if fly reached pie
-                    if (fly.alive && fly.checkPieCollision(this.pie)) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update insects
+                this.insects.forEach(insect => {
+                    insect.update(this.pie);
+
+                    // Check if insect reached pie
+                    if (insect.alive && insect.checkPieCollision(this.pie)) {
                         this.lives--;
-                        fly.die();
-                        this.addSplatter(fly.x, fly.y, "#8B4513"); // Brown splatter for pie hit
+                        
+                        // Add insect to pie walkers
+                        this.insectsOnPie.push({
+                            type: insect.type,
+                            angle: Math.random() * Math.PI * 2,
+                            speed: 0.01 + Math.random() * 0.01,
+                            radius: this.pie.radius - 10 - Math.random() * 15,
+                            size: insect.size,
+                            wingAngle: 0
+                        });
+                        
+                        insect.die();
+                        this.addSplatter(insect.x, insect.y, "#8B4513"); // Brown splatter for pie hit
                         
                         if (this.lives <= 0) {
                             this.gameState = "GAME_OVER";
                         }
                         
                         this.updateHealthDisplay();
+                        this.updateDisplays();
                     }
                 });
 
-                // Spawn new flies
+                // Update insects on pie
+                this.insectsOnPie.forEach(insect => {
+                    insect.angle += insect.speed;
+                    insect.wingAngle += 0.3;
+                });
+
+                // Spawn new insects
                 this.spawnTimer++;
-                if (this.spawnTimer > this.flySpawnRate - this.wave * 5) {
+                if (this.spawnTimer > this.insectSpawnRate - this.wave * 10) {
                     this.spawnTimer = 0;
-                    this.spawnFly();
+                    this.spawnInsect();
                 }
 
-                // Clean up dead flies (after a delay)
-                this.flies = this.flies.filter((fly, index) => {
-                    return fly.alive || index > this.flies.length - 10;
+                // Clean up dead insects (after a delay)
+                this.insects = this.insects.filter((insect, index) => {
+                    return insect.alive || index > this.insects.length - 10;
                 });
 
                 // Update blood splatters
@@ -406,16 +753,32 @@
                 });
 
                 // Check for wave completion
-                if (this.score > 0 && this.score % 10 === 0 && this.flies.filter(f => f.alive).length === 0) {
-                    this.nextWave();
+                if (this.killsThisWave >= this.insectsToKillThisWave) {
+                    // Clear remaining insects
+                    this.insects = [];
+                    this.insectsOnPie = []; // Clear insects on pie for next wave
+                    
+                    if (this.wave >= this.maxWaves) {
+                        this.gameState = "WON";
+                    } else {
+                        this.nextWave();
+                    }
                 }
+
+                this.updateDisplays();
             }
 
             nextWave() {
                 this.wave++;
-                this.flySpawnRate = Math.max(30, this.flySpawnRate - 10);
-                waveDisplay.textContent = `Wave: ${this.wave}`;
-                this.spawnInitialFlies();
+                this.lives = this.maxLives; // Reset lives to 5 for new wave!
+                this.killsThisWave = 0;
+                this.insectsToKillThisWave = 15 + (this.wave - 1) * 5; // More kills needed each wave
+                this.insectSpawnRate = Math.max(40, this.insectSpawnRate - 15);
+                this.maxInsects += 1; // More insects on screen
+                this.gameState = "WAVE_ANNOUNCEMENT";
+                this.waveAnnouncementTimer = 0;
+                this.updateHealthDisplay();
+                this.updateDisplays();
             }
 
             addSplatter(x, y, color) {
@@ -430,49 +793,62 @@
             }
 
             handleClick(mouseX, mouseY) {
-                if (this.gameState === "GAME_OVER") {
-                    this.restart();
-                    return;
-                }
-
                 if (this.gameState !== "PLAYING") return;
+                // GAME_OVER and WON now only restart with 'R' key
 
-                // Check if any fly was clicked
-                for (let i = this.flies.length - 1; i >= 0; i--) {
-                    const fly = this.flies[i];
-                    if (fly.alive && fly.checkClick(mouseX, mouseY)) {
-                        fly.die();
+                // Check if any insect was clicked
+                for (let i = this.insects.length - 1; i >= 0; i--) {
+                    const insect = this.insects[i];
+                    if (insect.alive && insect.checkClick(mouseX, mouseY)) {
+                        insect.die();
                         this.score++;
-                        scoreDisplay.textContent = this.score;
-                        this.addSplatter(fly.x, fly.y, "#8B0000"); // Dark red blood
+                        this.killsThisWave++;
                         
-                        // Spawn a new fly to keep pressure
-                        setTimeout(() => this.spawnFly(), 1000);
-                        break; // Only kill one fly per click
+                        // Different splatter colors for different insects
+                        let color = "#8B0000"; // Dark red for flies
+                        if (insect.type === "mosquito") color = "#4B0000"; // Darker for mosquitoes
+                        if (insect.type === "wasp") color = "#FFD700"; // Yellow for wasps
+                        
+                        this.addSplatter(insect.x, insect.y, color);
+                        this.updateDisplays();
+                        
+                        // Spawn a new insect to keep pressure
+                        setTimeout(() => this.spawnInsect(), 800);
+                        break; // Only kill one insect per click
                     }
                 }
             }
 
+            updateDisplays() {
+                scoreDisplay.textContent = this.score;
+                waveDisplay.textContent = `Wave: ${this.wave}/${this.maxWaves}`;
+                killsDisplay.textContent = this.killsThisWave;
+                const remaining = Math.max(0, this.insectsToKillThisWave - this.killsThisWave);
+                remainingDisplay.textContent = remaining;
+            }
+
             restart() {
-                this.flies = [];
+                this.insects = [];
+                this.insectsOnPie = [];
                 this.score = 0;
                 this.wave = 1;
-                this.lives = 3;
-                this.gameState = "PLAYING";
+                this.lives = this.maxLives; // Reset to 5 lives
+                this.gameState = "WAVE_ANNOUNCEMENT";
                 this.spawnTimer = 0;
-                this.flySpawnRate = 120;
+                this.insectSpawnRate = 120;
                 this.bloodSplatters = [];
+                this.killsThisWave = 0;
+                this.insectsToKillThisWave = 15;
+                this.maxInsects = 4;
+                this.waveAnnouncementTimer = 0;
                 
-                scoreDisplay.textContent = "0";
-                waveDisplay.textContent = "Wave: 1";
                 this.updateHealthDisplay();
-                
-                this.spawnInitialFlies();
+                this.updateDisplays();
             }
 
             updateHealthDisplay() {
                 const hearts = "❤️".repeat(Math.max(0, this.lives));
-                const brokenHearts = "💔".repeat(Math.max(0, 3 - this.lives));
+                const brokenHearts = "💔".repeat(Math.max(0, this.maxLives - this.lives));
                 healthDisplay.textContent = `Lives: ${hearts}${brokenHearts}`;
             }
 
@@ -514,11 +890,167 @@
                 // Draw pie
                 this.pie.draw();
 
-                // Draw flies
-                this.flies.forEach(fly => fly.draw());
+                // Draw insects on pie (walking around)
+                this.insectsOnPie.forEach(pieInsect => {
+                    const x = this.pie.x + Math.cos(pieInsect.angle) * pieInsect.radius;
+                    const y = this.pie.y + Math.sin(pieInsect.angle) * pieInsect.radius;
+                    
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(pieInsect.angle + Math.PI / 2);
+
+                    // Draw based on insect type
+                    const wingOffset = Math.sin(pieInsect.wingAngle) * 0.5;
+                    
+                    if (pieInsect.type === "mosquito") {
+                        // Mosquito on pie
+                        ctx.fillStyle = "rgba(200, 230, 255, 0.6)";
+                        ctx.beginPath();
+                        ctx.ellipse(-pieInsect.size * 0.6, -wingOffset * 2, pieInsect.size * 0.6, pieInsect.size * 0.4, -Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(pieInsect.size * 0.6, -wingOffset * 2, pieInsect.size * 0.6, pieInsect.size * 0.4, Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#444";
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, pieInsect.size * 0.4, pieInsect.size * 1.2, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (pieInsect.type === "wasp") {
+                        // Wasp on pie
+                        ctx.fillStyle = "rgba(255, 230, 200, 0.5)";
+                        ctx.beginPath();
+                        ctx.ellipse(-pieInsect.size * 0.8, -wingOffset * 3, pieInsect.size * 0.9, pieInsect.size * 0.5, -Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(pieInsect.size * 0.8, -wingOffset * 3, pieInsect.size * 0.9, pieInsect.size * 0.5, Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#FFD700";
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, pieInsect.size * 0.5, pieInsect.size, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#000";
+                        for (let i = -2; i <= 2; i++) {
+                            ctx.fillRect(-pieInsect.size * 0.5, i * 4 - 2, pieInsect.size, 3);
+                        }
+                    } else {
+                        // Fly on pie
+                        ctx.fillStyle = "rgba(200, 230, 255, 0.7)";
+                        ctx.beginPath();
+                        ctx.ellipse(-pieInsect.size * 0.7, -wingOffset * 3, pieInsect.size * 0.8, pieInsect.size * 0.5, -Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(pieInsect.size * 0.7, -wingOffset * 3, pieInsect.size * 0.8, pieInsect.size * 0.5, Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#222";
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, pieInsect.size * 0.6, pieInsect.size, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    ctx.restore();
+                });
+
+                // Draw insects
+                this.insects.forEach(insect => insect.draw());
 
                 // Draw game state text
-                if (this.gameState === "GAME_OVER") {
+                if (this.gameState === "WAVE_ANNOUNCEMENT") {
+                    // Semi-transparent overlay
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                    // Wave title
+                    ctx.fillStyle = "#FFD700";
+                    ctx.font = "bold 60px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(`Wave ${this.wave}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
+
+                    // Incoming insects
+                    ctx.fillStyle = "white";
+                    ctx.font = "30px Arial";
+                    ctx.fillText("Incoming Insects:", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+
+                    // Show insect types
+                    let yPos = CANVAS_HEIGHT / 2 + 10;
+                    if (this.wave === 1) {
+                        ctx.font = "28px Arial";
+                        ctx.fillStyle = "#4CAF50";
+                        ctx.fillText("🪰 Flies", CANVAS_WIDTH / 2, yPos);
+                        ctx.font = "18px Arial";
+                        ctx.fillStyle = "#AAA";
+                        ctx.fillText("Basic movement, predictable patterns", CANVAS_WIDTH / 2, yPos + 30);
+                    } else if (this.wave === 2) {
+                        ctx.font = "24px Arial";
+                        ctx.fillStyle = "#4CAF50";
+                        ctx.fillText("🪰 Flies + 🦟 Mosquitoes", CANVAS_WIDTH / 2, yPos);
+                        ctx.font = "18px Arial";
+                        ctx.fillStyle = "#AAA";
+                        ctx.fillText("Mosquitoes zigzag wildly - much harder to predict!", CANVAS_WIDTH / 2, yPos + 30);
+                    } else if (this.wave === 3) {
+                        ctx.font = "22px Arial";
+                        ctx.fillStyle = "#4CAF50";
+                        ctx.fillText("🪰 Flies + 🦟 Mosquitoes + 🐝 Wasps", CANVAS_WIDTH / 2, yPos);
+                        ctx.font = "18px Arial";
+                        ctx.fillStyle = "#AAA";
+                        ctx.fillText("Wasps are CHAOS - massive unpredictable movements!", CANVAS_WIDTH / 2, yPos + 30);
+                    }
+
+                    // Target info
+                    ctx.fillStyle = "#FF9800";
+                    ctx.font = "24px Arial";
+                    ctx.fillText(`Kill ${this.insectsToKillThisWave} insects to advance`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+                    
+                    // Lives reset info (only show for wave 2+)
+                    if (this.wave > 1) {
+                        ctx.fillStyle = "#4CAF50";
+                        ctx.font = "20px Arial";
+                        ctx.fillText("❤️ Lives restored to 5! ❤️", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 130);
+                    }
+
+                    // Progress bar
+                    const barWidth = 300;
+                    const barHeight = 20;
+                    const barX = CANVAS_WIDTH / 2 - barWidth / 2;
+                    const barY = CANVAS_HEIGHT / 2 + 140;
+                    const progress = this.waveAnnouncementTimer / this.waveAnnouncementDuration;
+                    
+                    ctx.fillStyle = "#444";
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+                    ctx.fillStyle = "#4CAF50";
+                    ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+                    
+                    ctx.strokeStyle = "white";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                    ctx.fillStyle = "#AAA";
+                    ctx.font = "16px Arial";
+                    ctx.fillText("Get ready...", CANVAS_WIDTH / 2, barY + 40);
+                } else if (this.gameState === "WON") {
+                    // Darken screen
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                    // Victory text
+                    ctx.fillStyle = "#FFD700";
+                    ctx.font = "bold 60px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("VICTORY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+
+                    ctx.fillStyle = "white";
+                    ctx.font = "30px Arial";
+                    ctx.fillText("You protected grandma's pie!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+
+                    ctx.font = "40px Arial";
+                    ctx.fillStyle = "#4CAF50";
+                    ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+
+                    ctx.fillStyle = "#AAA";
+                    ctx.font = "20px Arial";
+                    ctx.fillText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+                } else if (this.gameState === "GAME_OVER") {
                     // Darken screen
                     ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
                     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -540,7 +1072,7 @@
 
                     ctx.fillStyle = "#AAA";
                     ctx.font = "20px Arial";
-                    ctx.fillText("Click or Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+                    ctx.fillText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
                 }
             }
         }
@@ -564,7 +1096,7 @@
         });
 
         document.addEventListener("keydown", (event) => {
-            if ((event.key === "r" || event.key === "R") && game.gameState === "GAME_OVER") {
+            if ((event.key === "r" || event.key === "R") && (game.gameState === "GAME_OVER" || game.gameState === "WON")) {
                 game.restart();
             }
         });

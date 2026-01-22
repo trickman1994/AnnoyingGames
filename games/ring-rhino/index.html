@@ -811,12 +811,12 @@
                     this.drawText("🦏 RHINO WOKE UP! 🦏", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
                     this.drawText("You disturbed his sleep!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
                     this.drawText(`Rings on horn: ${this.ringsOnHorn}/10`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "24px Arial", "#FFD700");
-                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 75, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 75, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 PERFECT! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "52px Arial", "#FFD700");
                     this.drawText("All rings on the horn!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "32px Arial", "white");
                     this.drawText("The rhino is still sleeping 😴", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45, "24px Arial", "#4CAF50");
-                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#888");
                 }
             }
 
@@ -858,7 +858,7 @@
                 return;
             }
 
-            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             } else if (game.gameState === "PLAYING") {
                 const rect = canvas.getBoundingClientRect();
@@ -866,6 +866,7 @@
                 const y = event.clientY - rect.top;
                 game.throwRing(x, y);
             }
+            // LOST and WON now only restart with 'R' key
         }
 
         function onKeyDown(event) {

@@ -532,6 +532,7 @@
                     this.drawText("You reached 100%!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
                     this.drawText(`After ${this.attempts} attempts`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
                     this.drawText("You're a legend!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110, "16px Arial", "#888");
                 }
             }
 
@@ -566,13 +567,13 @@
             
             if (event.key === " " || event.key === "Spacebar") {
                 event.preventDefault();
-                if (game.gameState === "START" || game.gameState === "WON") {
+                if (game.gameState === "START") {
                     game.start();
                 } else if (game.gameState === "PLAYING") {
                     game.player.jump();
                 }
             } else if (event.key === "r" || event.key === "R") {
-                if (game.gameState === "DEAD") {
+                if (game.gameState === "DEAD" || game.gameState === "WON") {
                     game.start();
                 }
             }
@@ -588,9 +589,10 @@
                 return;
             }
             
-            if (game.gameState === "START" || game.gameState === "DEAD" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             }
+            // DEAD and WON now only restart with 'R' key
         }
 
         // Attach event listeners

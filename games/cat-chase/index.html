@@ -12,7 +12,6 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            cursor: none;
         }
         
         #game-container {
@@ -21,13 +20,12 @@
             border-radius: 10px;
             overflow: hidden;
             margin-top: 20px;
-            cursor: none;
         }
         
         #gameCanvas {
             display: block;
             background: #2d5016;
-            cursor: none;
+            cursor: default;
         }
         
         #game-info {
@@ -471,10 +469,10 @@
             }
 
             spawnCheeseFromCat(cat) {
-                // Spawn 4 cheese traps in random places close to the dead cat
+                // Spawn 4 cheese traps at 2x distance from the dead cat
                 for (let i = 0; i < 4; i++) {
                     const angle = (Math.PI * 2 / 4) * i + Math.random() * 0.5;
-                    const distance = 50 + Math.random() * 50;
+                    const distance = 100 + Math.random() * 100; // 2x distance (was 50-100, now 100-200)
                     const x = cat.x + Math.cos(angle) * distance;
                     const y = cat.y + Math.sin(angle) * distance;
                     
@@ -553,11 +551,11 @@
                 } else if (this.gameState === "DEAD") {
                     this.drawText("🐱 CAUGHT BY A CAT! 🐱", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF6B6B");
                     this.drawText("The cats got you!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
-                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
                 } else if (this.gameState === "WON") {
                     this.drawText("🎉 YOU SURVIVED! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
                     this.drawText("The mouse escapes!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
-                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
                 }
             }
 
@@ -607,9 +605,10 @@
                 return;
             }
 
-            if (game.gameState === "START" || game.gameState === "DEAD" || game.gameState === "WON") {
+            if (game.gameState === "START") {
                 game.start();
             }
+            // DEAD and WON now only restart with 'R' key
         }
 
         // Attach event listeners
