@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bottle Aim - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #F5E6D3;
+            cursor: none;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+        
+        .stat {
+            font-size: 20px;
+        }
+        
+        #bottle-fill {
+            color: #4CAF50;
+        }
+        
+        #feet-hits {
+            color: #FF6B6B;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="game-info">
+            <div id="stats">
+                <div class="stat" id="bottle-fill">🍾 Bottle: 0%</div>
+                <div class="stat" id="feet-hits">👣 Feet hits: 0/2</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🚽 Bottle Aim</h2>
+        <p>Fill the bottle without peeing on your feet!</p>
+        <p class="warning">⚠️ Can't stop peeing - it's constant!</p>
+        <p><strong>Controls:</strong> Move mouse to aim the stream</p>
+        <p>💨 Wind affects your aim - adjust constantly!</p>
+        <p>🎯 Fill the bottle to 100% to WIN!</p>
+        <p class="warning">❌ Hit BOTH feet = LOSE!</p>
+        <p><small>Click to start • Press R to restart</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const bottleFillDisplay = document.getElementById("bottle-fill");
+        const feetHitsDisplay = document.getElementById("feet-hits");
+
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 800;
+        const WIN_FILL = 100;
+
+        class Player {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = 100;
+                this.bodyWidth = 60;
+                this.bodyHeight = 80;
+                
+                // Feet positions - PERFECTLY SYMMETRICAL
+                this.footWidth = 40;
+                this.footHeight = 25;
+                this.footSpacing = 50; // Distance between feet centers
+                
+                this.leftFootX = this.x - this.footSpacing - this.footWidth / 2;
+                this.leftFootY = CANVAS_HEIGHT - 100;
+                this.rightFootX = this.x + this.footSpacing - this.footWidth / 2;
+                this.rightFootY = CANVAS_HEIGHT - 100;
+                
+                this.leftFootHit = false;
+                this.rightFootHit = false;
+            }
+
+            draw() {
+                // Draw body (simple stick figure)
+                ctx.fillStyle = "#FFE4C4";
+                ctx.strokeStyle = "#8B4513";
+                ctx.lineWidth = 8;
+                
+                // Head
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 25, 0, Math.PI * 2);
+                ctx.fillStyle = "#FFE4C4";
+                ctx.fill();
+                ctx.stroke();
+                
+                // Face
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(this.x - 8, this.y - 5, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 8, this.y - 5, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Worried mouth
+                ctx.strokeStyle = "#000";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y + 8, 8, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+                
+                // Body
+                ctx.strokeStyle = "#4169E1";
+                ctx.lineWidth = 25;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 25);
+                ctx.lineTo(this.x, this.y + 100);
+                ctx.stroke();
+                
+                // Arms
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 50);
+                ctx.lineTo(this.x - 40, this.y + 80);
+                ctx.moveTo(this.x, this.y + 50);
+                ctx.lineTo(this.x + 40, this.y + 80);
+                ctx.stroke();
+                
+                // Legs - SYMMETRICAL
+                ctx.strokeStyle = "#2C5AA0";
+                ctx.lineWidth = 15;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 100);
+                ctx.lineTo(this.leftFootX + this.footWidth / 2, this.leftFootY);
+                ctx.moveTo(this.x, this.y + 100);
+                ctx.lineTo(this.rightFootX + this.footWidth / 2, this.rightFootY);
+                ctx.stroke();
+                
+                // Feet - PERFECTLY SYMMETRICAL with rounded corners
+                const drawFoot = (x, y, hit) => {
+                    ctx.fillStyle = hit ? "#8B0000" : "#654321";
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 2;
+                    
+                    // Draw rounded rectangle
+                    const radius = 5;
+                    ctx.beginPath();
+                    ctx.moveTo(x + radius, y);
+                    ctx.lineTo(x + this.footWidth - radius, y);
+                    ctx.quadraticCurveTo(x + this.footWidth, y, x + this.footWidth, y + radius);
+                    ctx.lineTo(x + this.footWidth, y + this.footHeight - radius);
+                    ctx.quadraticCurveTo(x + this.footWidth, y + this.footHeight, x + this.footWidth - radius, y + this.footHeight);
+                    ctx.lineTo(x + radius, y + this.footHeight);
+                    ctx.quadraticCurveTo(x, y + this.footHeight, x, y + this.footHeight - radius);
+                    ctx.lineTo(x, y + radius);
+                    ctx.quadraticCurveTo(x, y, x + radius, y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                };
+                
+                drawFoot(this.leftFootX, this.leftFootY, this.leftFootHit);
+                drawFoot(this.rightFootX, this.rightFootY, this.rightFootHit);
+            }
+
+            checkFootHit(x, y) {
+                // Check left foot
+                if (x >= this.leftFootX && x <= this.leftFootX + this.footWidth &&
+                    y >= this.leftFootY && y <= this.leftFootY + this.footHeight) {
+                    if (!this.leftFootHit) {
+                        this.leftFootHit = true;
+                        return 'left';
+                    }
+                }
+                
+                // Check right foot
+                if (x >= this.rightFootX && x <= this.rightFootX + this.footWidth &&
+                    y >= this.rightFootY && y <= this.rightFootY + this.footHeight) {
+                    if (!this.rightFootHit) {
+                        this.rightFootHit = true;
+                        return 'right';
+                    }
+                }
+                
+                return null;
+            }
+        }
+
+        class Bottle {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT - 150;
+                this.width = 50;
+                this.height = 120;
+                this.neckWidth = 16;
+                this.neckHeight = 20;
+                this.fill = 0;
+                this.capacity = 100;
+            }
+
+            draw() {
+                ctx.save();
+                
+                // Draw bottle body - PERFECTLY CENTERED AND SYMMETRICAL
+                ctx.fillStyle = "rgba(200, 220, 255, 0.5)";
+                ctx.strokeStyle = "#4682B4";
+                ctx.lineWidth = 3;
+                
+                // Calculate perfectly centered positions
+                const bodyLeft = this.x - this.width / 2;
+                const bodyTop = this.y;
+                const neckLeft = this.x - this.neckWidth / 2;
+                const neckTop = this.y - this.neckHeight;
+                
+                // Bottle body with slight rounding at bottom
+                ctx.beginPath();
+                ctx.moveTo(bodyLeft, bodyTop);
+                ctx.lineTo(bodyLeft, bodyTop + this.height - 5);
+                ctx.quadraticCurveTo(bodyLeft, bodyTop + this.height, bodyLeft + 5, bodyTop + this.height);
+                ctx.lineTo(bodyLeft + this.width - 5, bodyTop + this.height);
+                ctx.quadraticCurveTo(bodyLeft + this.width, bodyTop + this.height, bodyLeft + this.width, bodyTop + this.height - 5);
+                ctx.lineTo(bodyLeft + this.width, bodyTop);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                // Bottle neck - perfectly centered
+                ctx.fillStyle = "rgba(200, 220, 255, 0.5)";
+                ctx.fillRect(neckLeft, neckTop, this.neckWidth, this.neckHeight);
+                ctx.strokeRect(neckLeft, neckTop, this.neckWidth, this.neckHeight);
+                
+                // Opening (the target!) - perfectly centered
+                ctx.fillStyle = "#000";
+                ctx.fillRect(neckLeft, neckTop, this.neckWidth, 3);
+                
+                // Draw fill level - perfectly centered
+                if (this.fill > 0) {
+                    const fillHeight = (this.fill / this.capacity) * this.height;
+                    const fillMargin = 4;
+                    ctx.fillStyle = "rgba(255, 255, 100, 0.8)";
+                    ctx.fillRect(
+                        bodyLeft + fillMargin,
+                        bodyTop + this.height - fillHeight,
+                        this.width - fillMargin * 2,
+                        fillHeight
+                    );
+                }
+                
+                // Draw percentage - perfectly centered
+                ctx.fillStyle = "#000";
+                ctx.font = "bold 16px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(`${Math.floor(this.fill)}%`, this.x, this.y + this.height / 2);
+                
+                ctx.restore();
+            }
+
+            checkHit(x, y) {
+                // Check if stream hits the bottle opening
+                return x >= this.x - this.neckWidth / 2 && 
+                       x <= this.x + this.neckWidth / 2 &&
+                       y >= this.y - this.neckHeight &&
+                       y <= this.y;
+            }
+
+            addFill(amount) {
+                this.fill = Math.min(this.capacity, this.fill + amount);
+            }
+        }
+
+        class StreamParticle {
+            constructor(x, y, vx, vy, windX, windY) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.windX = windX;
+                this.windY = windY;
+                this.life = 60;
+                this.size = 3 + Math.random() * 2;
+                this.landed = false;
+            }
+
+            update() {
+                if (this.landed) return;
+
+                // Apply wind
+                this.vx += this.windX * 0.3;
+                this.vy += this.windY * 0.1;
+                
+                // Apply gravity
+                this.vy += 0.4;
+                
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                this.life--;
+                
+                // Check if hit ground
+                if (this.y >= CANVAS_HEIGHT - 80) {
+                    this.landed = true;
+                }
+            }
+
+            draw() {
+                if (this.landed) return;
+                
+                const alpha = this.life / 60;
+                ctx.fillStyle = `rgba(255, 255, 100, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.player = new Player();
+                this.bottle = new Bottle();
+                this.streamParticles = [];
+                this.gameState = "START";
+                this.feetHits = 0;
+                this.windX = 0;
+                this.windY = 0;
+                this.windChangeTimer = 0;
+                this.mouseX = CANVAS_WIDTH / 2;
+                this.mouseY = CANVAS_HEIGHT / 2;
+                this.aimAngle = Math.PI / 2; // Start pointing down
+                this.streamTimer = 0;
+            }
+
+            start() {
+                this.player = new Player();
+                this.bottle = new Bottle();
+                this.streamParticles = [];
+                this.gameState = "PLAYING";
+                this.feetHits = 0;
+                this.windX = 0;
+                this.windY = 0;
+                this.windChangeTimer = 180; // Start with 3 seconds
+                this.aimAngle = Math.PI / 2;
+                this.streamTimer = 0;
+                
+                // Reset displays
+                bottleFillDisplay.textContent = `🍾 Bottle: 0%`;
+                feetHitsDisplay.textContent = `👣 Feet hits: 0/2`;
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update wind (stays stable for 3-10 seconds)
+                this.windChangeTimer--;
+                if (this.windChangeTimer <= 0) {
+                    this.windX = (Math.random() - 0.5) * 1.5; // Wind from -0.75 to 0.75
+                    this.windY = (Math.random() - 0.5) * 0.8;
+                    this.windChangeTimer = 180 + Math.random() * 420; // Change every 3-10 seconds
+                }
+
+                // Calculate aim angle based on mouse position
+                const dx = this.mouseX - this.player.x;
+                const dy = this.mouseY - (this.player.y + 100);
+                this.aimAngle = Math.atan2(dy, dx);
+
+                // Spawn stream particles constantly
+                this.streamTimer++;
+                if (this.streamTimer % 2 === 0) { // Every other frame
+                    const startX = this.player.x;
+                    const startY = this.player.y + 100;
+                    const speed = 8;
+                    const vx = Math.cos(this.aimAngle) * speed;
+                    const vy = Math.sin(this.aimAngle) * speed;
+                    
+                    this.streamParticles.push(new StreamParticle(startX, startY, vx, vy, this.windX, this.windY));
+                }
+
+                // Update stream particles
+                for (let i = this.streamParticles.length - 1; i >= 0; i--) {
+                    const particle = this.streamParticles[i];
+                    particle.update();
+
+                    // Check bottle hit
+                    if (!particle.landed && this.bottle.checkHit(particle.x, particle.y)) {
+                        this.bottle.addFill(0.5);
+                        particle.landed = true;
+                        bottleFillDisplay.textContent = `🍾 Bottle: ${Math.floor(this.bottle.fill)}%`;
+                    }
+
+                    // Check foot hit
+                    if (!particle.landed) {
+                        const footHit = this.player.checkFootHit(particle.x, particle.y);
+                        if (footHit) {
+                            this.feetHits++;
+                            feetHitsDisplay.textContent = `👣 Feet hits: ${this.feetHits}/2`;
+                            particle.landed = true;
+                            
+                            if (this.feetHits >= 2) {
+                                this.gameState = "LOST";
+                            }
+                        }
+                    }
+
+                    // Remove dead particles
+                    if (particle.life <= 0 || particle.landed) {
+                        this.streamParticles.splice(i, 1);
+                    }
+                }
+
+                // Check win condition
+                if (this.bottle.fill >= WIN_FILL) {
+                    this.gameState = "WON";
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                gradient.addColorStop(0, "#F5E6D3");
+                gradient.addColorStop(1, "#E8D4B8");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw floor
+                ctx.fillStyle = "#8B7355";
+                ctx.fillRect(0, CANVAS_HEIGHT - 80, CANVAS_WIDTH, 80);
+
+                // Draw wind indicator lines
+                if (this.gameState === "PLAYING") {
+                    ctx.save();
+                    ctx.globalAlpha = 0.4;
+                    
+                    for (let i = 0; i < 10; i++) {
+                        const y = 150 + i * 60;
+                        const offset = (Date.now() / 30 + i * 20) % CANVAS_WIDTH;
+                        
+                        ctx.strokeStyle = "#87CEEB";
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(offset, y);
+                        ctx.lineTo(offset + this.windX * 50, y + this.windY * 30);
+                        ctx.stroke();
+                    }
+                    
+                    ctx.restore();
+                }
+
+                // Draw player
+                this.player.draw();
+
+                // Draw bottle
+                this.bottle.draw();
+
+                // Draw stream particles
+                for (const particle of this.streamParticles) {
+                    particle.draw();
+                }
+
+                // Draw aim line preview
+                if (this.gameState === "PLAYING") {
+                    ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(this.player.x, this.player.y + 100);
+                    ctx.lineTo(
+                        this.player.x + Math.cos(this.aimAngle) * 200,
+                        this.player.y + 100 + Math.sin(this.aimAngle) * 200
+                    );
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🚽 Bottle Aim", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100, "48px Arial", "#4169E1");
+                    this.drawText("Fill the bottle without", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30, "24px Arial", "#000");
+                    this.drawText("peeing on BOTH feet!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "#000");
+                    this.drawText("Move mouse to aim", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#666");
+                    this.drawText("Click anywhere to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#888");
+                } else if (this.gameState === "LOST") {
+                    this.drawText("💦 OH NO! 💦", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
+                    this.drawText("You peed on both feet!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "#000");
+                    this.drawText(`Bottle filled: ${Math.floor(this.bottle.fill)}%`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "24px Arial", "#666");
+                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 SUCCESS! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "52px Arial", "#FFD700");
+                    this.drawText("Bottle filled 100%!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "32px Arial", "#4CAF50");
+                    this.drawText("Clean feet, full bottle!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45, "24px Arial", "#000");
+                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 85, "18px Arial", "#888");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+                game.start();
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "LOST" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        canvas.addEventListener("click", onClick);
+        document.addEventListener("keydown", onKeyDown);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

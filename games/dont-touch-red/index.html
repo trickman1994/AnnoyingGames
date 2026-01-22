@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Don't Touch Red - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            cursor: none;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+            cursor: none;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #1a1a1a;
+            cursor: none;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        #timer {
+            font-size: 48px;
+            color: #4CAF50;
+        }
+        
+        #best-time {
+            font-size: 20px;
+            color: #FFD700;
+            margin-top: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #ff4444;
+            font-weight: bold;
+            animation: blink 1.5s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div id="game-info">
+            <div id="timer">0.00s</div>
+            <div id="best-time">Best: 0.00s</div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🔴 Don't Touch Red</h2>
+        <p>Move your mouse to control the <strong>green circle</strong></p>
+        <p>Avoid the <strong>RED obstacles</strong></p>
+        <p class="warning">⚠️ Survive for 60 seconds to win! (It's easy... right?)</p>
+        <p><small>Click to start • Press R to restart</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const timerDisplay = document.getElementById("timer");
+        const bestTimeDisplay = document.getElementById("best-time");
+
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 600;
+        const PLAYER_VISUAL_RADIUS = 15;
+        const PLAYER_HITBOX_RADIUS = 22; // 😈 Larger than it looks!
+        const WIN_TIME = 60; // 60 seconds to survive
+
+        let bestTime = 0;
+
+        class Player {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT / 2;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.visualRadius = PLAYER_VISUAL_RADIUS;
+                this.hitboxRadius = PLAYER_HITBOX_RADIUS;
+                this.driftX = 0;
+                this.driftY = 0;
+            }
+
+            update(mouseX, mouseY) {
+                // Add slight drift (evil!)
+                this.driftX += (Math.random() - 0.5) * 0.3;
+                this.driftY += (Math.random() - 0.5) * 0.3;
+                this.driftX *= 0.95;
+                this.driftY *= 0.95;
+
+                // Smooth follow with slight lag (more evil!)
+                this.targetX = mouseX;
+                this.targetY = mouseY;
+                
+                const smoothing = 0.15; // Adds that "off" feeling
+                this.x += (this.targetX - this.x) * smoothing + this.driftX;
+                this.y += (this.targetY - this.y) * smoothing + this.driftY;
+
+                // Keep in bounds
+                this.x = Math.max(this.hitboxRadius, Math.min(CANVAS_WIDTH - this.hitboxRadius, this.x));
+                this.y = Math.max(this.hitboxRadius, Math.min(CANVAS_HEIGHT - this.hitboxRadius, this.y));
+            }
+
+            draw() {
+                // Draw green circle (SMALLER than actual hitbox 😈)
+                ctx.fillStyle = "#4CAF50";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.visualRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Add shine
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.beginPath();
+                ctx.arc(this.x - 5, this.y - 5, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Uncomment to debug hitbox (too easy!)
+                // ctx.strokeStyle = "yellow";
+                // ctx.beginPath();
+                // ctx.arc(this.x, this.y, this.hitboxRadius, 0, Math.PI * 2);
+                // ctx.stroke();
+            }
+        }
+
+        class Obstacle {
+            constructor(fromEdge = null) {
+                this.radius = 20 + Math.random() * 30;
+                this.speed = 2 + Math.random() * 3;
+                
+                // Start from random edge
+                const edge = fromEdge || Math.floor(Math.random() * 4);
+                if (edge === 0) { // Top
+                    this.x = Math.random() * CANVAS_WIDTH;
+                    this.y = -this.radius;
+                } else if (edge === 1) { // Right
+                    this.x = CANVAS_WIDTH + this.radius;
+                    this.y = Math.random() * CANVAS_HEIGHT;
+                } else if (edge === 2) { // Bottom
+                    this.x = Math.random() * CANVAS_WIDTH;
+                    this.y = CANVAS_HEIGHT + this.radius;
+                } else { // Left
+                    this.x = -this.radius;
+                    this.y = Math.random() * CANVAS_HEIGHT;
+                }
+
+                // Aim towards center with some randomness
+                const targetX = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * 200;
+                const targetY = CANVAS_HEIGHT / 2 + (Math.random() - 0.5) * 200;
+                const angle = Math.atan2(targetY - this.y, targetX - this.x);
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+
+                // Evil: Random speed changes
+                this.speedChangeTimer = Math.random() * 60 + 30;
+                this.fakeoutTimer = Math.random() * 120 + 60;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Evil: Random speed bursts
+                this.speedChangeTimer--;
+                if (this.speedChangeTimer <= 0) {
+                    const speedMultiplier = 0.8 + Math.random() * 0.8;
+                    this.vx *= speedMultiplier;
+                    this.vy *= speedMultiplier;
+                    this.speedChangeTimer = Math.random() * 60 + 30;
+                }
+
+                // Evil: Random fakeouts (change direction slightly)
+                this.fakeoutTimer--;
+                if (this.fakeoutTimer <= 0 && Math.random() < 0.3) {
+                    const fakeAngle = (Math.random() - 0.5) * 0.5;
+                    const cos = Math.cos(fakeAngle);
+                    const sin = Math.sin(fakeAngle);
+                    const newVx = this.vx * cos - this.vy * sin;
+                    const newVy = this.vx * sin + this.vy * cos;
+                    this.vx = newVx;
+                    this.vy = newVy;
+                    this.fakeoutTimer = Math.random() * 120 + 60;
+                }
+            }
+
+            draw() {
+                // Draw red obstacle
+                ctx.fillStyle = "#FF1744";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Add gradient
+                const gradient = ctx.createRadialGradient(
+                    this.x - this.radius * 0.3,
+                    this.y - this.radius * 0.3,
+                    this.radius * 0.1,
+                    this.x,
+                    this.y,
+                    this.radius
+                );
+                gradient.addColorStop(0, "#FF5252");
+                gradient.addColorStop(1, "#C62828");
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            isOffScreen() {
+                return this.x < -this.radius * 2 || 
+                       this.x > CANVAS_WIDTH + this.radius * 2 ||
+                       this.y < -this.radius * 2 || 
+                       this.y > CANVAS_HEIGHT + this.radius * 2;
+            }
+
+            checkCollision(player) {
+                const dx = this.x - player.x;
+                const dy = this.y - player.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius + player.hitboxRadius;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.player = new Player();
+                this.obstacles = [];
+                this.gameState = "START"; // START, PLAYING, DEAD, WON
+                this.time = 0;
+                this.spawnTimer = 0;
+                this.spawnRate = 40; // Frames between spawns
+                this.mouseX = CANVAS_WIDTH / 2;
+                this.mouseY = CANVAS_HEIGHT / 2;
+                this.deaths = 0;
+            }
+
+            start() {
+                this.player = new Player();
+                this.obstacles = [];
+                this.time = 0;
+                this.spawnTimer = 0;
+                this.gameState = "PLAYING";
+                this.deaths++;
+                
+                // Evil: Make it harder each time you die
+                this.spawnRate = Math.max(20, 40 - this.deaths * 2);
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                this.time += 1/60;
+                timerDisplay.textContent = this.time.toFixed(2) + "s";
+
+                // Update player
+                this.player.update(this.mouseX, this.mouseY);
+
+                // Spawn obstacles
+                this.spawnTimer++;
+                if (this.spawnTimer >= this.spawnRate) {
+                    this.obstacles.push(new Obstacle());
+                    this.spawnTimer = 0;
+                    
+                    // Evil: Spawn rate increases over time
+                    if (this.time > 10 && Math.random() < 0.3) {
+                        this.obstacles.push(new Obstacle());
+                    }
+                    if (this.time > 20 && Math.random() < 0.2) {
+                        this.obstacles.push(new Obstacle());
+                    }
+                    if (this.time > 40 && Math.random() < 0.15) {
+                        // Spam obstacles near the end
+                        this.obstacles.push(new Obstacle());
+                        this.obstacles.push(new Obstacle());
+                    }
+                }
+
+                // Update obstacles
+                for (let i = this.obstacles.length - 1; i >= 0; i--) {
+                    this.obstacles[i].update();
+
+                    // Check collision
+                    if (this.obstacles[i].checkCollision(this.player)) {
+                        this.gameState = "DEAD";
+                        if (this.time > bestTime) {
+                            bestTime = this.time;
+                            bestTimeDisplay.textContent = `Best: ${bestTime.toFixed(2)}s`;
+                        }
+                    }
+
+                    // Remove off-screen obstacles
+                    if (this.obstacles[i].isOffScreen()) {
+                        this.obstacles.splice(i, 1);
+                    }
+                }
+
+                // Check win condition
+                if (this.time >= WIN_TIME) {
+                    this.gameState = "WON";
+                    if (WIN_TIME > bestTime) {
+                        bestTime = WIN_TIME;
+                        bestTimeDisplay.textContent = `Best: ${bestTime.toFixed(2)}s`;
+                    }
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                ctx.fillStyle = "#1a1a1a";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw grid (makes it look easier than it is)
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                ctx.lineWidth = 1;
+                for (let i = 0; i < CANVAS_WIDTH; i += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, CANVAS_HEIGHT);
+                    ctx.stroke();
+                }
+                for (let i = 0; i < CANVAS_HEIGHT; i += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(CANVAS_WIDTH, i);
+                    ctx.stroke();
+                }
+
+                // Draw obstacles
+                for (const obstacle of this.obstacles) {
+                    obstacle.draw();
+                }
+
+                // Draw player
+                this.player.draw();
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("Click anywhere to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText("How hard can it be?", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
+                } else if (this.gameState === "DEAD") {
+                    this.drawText("YOU TOUCHED RED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF4444");
+                    this.drawText(`Survived: ${this.time.toFixed(2)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText(`Deaths: ${this.deaths}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
+                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 YOU WON! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText("You actually did it!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText(`After ${this.deaths} deaths`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
+                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "DEAD" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        function onClick(event) {
+            // Don't prevent default if clicking on a link
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START" || game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("click", onClick);
+        document.body.addEventListener("click", onClick);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

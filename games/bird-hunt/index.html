@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bird Hunt - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #87CEEB;
+            cursor: crosshair;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+        
+        .stat {
+            font-size: 20px;
+        }
+        
+        #birds-found {
+            color: #4CAF50;
+        }
+        
+        #timer {
+            color: #FFD700;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        <div id="game-info">
+            <div id="stats">
+                <div class="stat" id="birds-found">🐦 Birds: 0/5</div>
+                <div class="stat" id="timer">⏱️ Time: 30s</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🐦 Bird Hunt</h2>
+        <p>Find all <strong>5 birds</strong> hidden in <strong>50 trees</strong>!</p>
+        <p class="warning">⚠️ But it's not that easy...</p>
+        <p><strong>Click a tree</strong> to throw a paper airplane at it</p>
+        <p>🛩️ The airplane takes time to fly...</p>
+        <p>🐦 Birds randomly fly between trees!</p>
+        <p class="warning">💔 If the bird leaves before your airplane arrives, you MISS!</p>
+        <p><strong>⏰ Find all 5 birds in 30 seconds!</strong></p>
+        <p><small>Click to start • Press R to restart</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const birdsFoundDisplay = document.getElementById("birds-found");
+        const timerDisplay = document.getElementById("timer");
+
+        const CANVAS_WIDTH = 1000;
+        const CANVAS_HEIGHT = 700;
+        const NUM_TREES = 50;
+        const NUM_BIRDS = 5;
+        const GAME_TIME = 30;
+
+        class Tree {
+            constructor(id, x, y) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.width = 60;
+                this.height = 80;
+                this.hasBird = false;
+                this.birdRevealed = false;
+                this.shaking = false;
+                this.shakeTimer = 0;
+                this.shakeOffset = 0;
+            }
+
+            draw() {
+                ctx.save();
+                
+                // Apply shake effect
+                if (this.shaking) {
+                    ctx.translate(this.shakeOffset, 0);
+                }
+                
+                // Draw trunk
+                ctx.fillStyle = "#8B4513";
+                ctx.fillRect(this.x - 10, this.y, 20, 40);
+                
+                // Draw foliage (tree top)
+                ctx.fillStyle = this.birdRevealed ? "#90EE90" : "#228B22";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 20, 35, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add some texture
+                ctx.fillStyle = "rgba(0, 100, 0, 0.3)";
+                ctx.beginPath();
+                ctx.arc(this.x - 10, this.y - 25, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 10, this.y - 15, 18, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw bird if revealed
+                if (this.birdRevealed && this.hasBird) {
+                    this.drawBird(this.x, this.y - 20);
+                }
+                
+                ctx.restore();
+            }
+
+            drawBird(x, y) {
+                // Bird body
+                ctx.fillStyle = "#FF6B6B";
+                ctx.beginPath();
+                ctx.ellipse(x, y, 8, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bird head
+                ctx.beginPath();
+                ctx.arc(x + 6, y - 3, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(x + 8, y - 3, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Beak
+                ctx.fillStyle = "#FFA500";
+                ctx.beginPath();
+                ctx.moveTo(x + 10, y - 3);
+                ctx.lineTo(x + 14, y - 2);
+                ctx.lineTo(x + 10, y - 1);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Wings
+                ctx.strokeStyle = "#FF4444";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - 8, y - 5);
+                ctx.stroke();
+            }
+
+            shake() {
+                this.shaking = true;
+                this.shakeTimer = 20;
+            }
+
+            update() {
+                if (this.shaking) {
+                    this.shakeTimer--;
+                    this.shakeOffset = Math.sin(Date.now() / 50) * 5;
+                    if (this.shakeTimer <= 0) {
+                        this.shaking = false;
+                        this.shakeOffset = 0;
+                    }
+                }
+            }
+
+            contains(x, y) {
+                const dx = x - this.x;
+                const dy = y - (this.y - 20);
+                return Math.sqrt(dx * dx + dy * dy) < 40;
+            }
+        }
+
+        class PaperAirplane {
+            constructor(startX, startY, targetTree) {
+                this.x = startX;
+                this.y = startY;
+                this.startX = startX;
+                this.startY = startY;
+                this.targetTree = targetTree;
+                this.targetTreeId = targetTree.id;
+                this.targetX = targetTree.x;
+                this.targetY = targetTree.y - 20;
+                this.progress = 0;
+                
+                // Random flight time 2-3 seconds (120-180 frames)
+                const flightTime = 120 + Math.random() * 60;
+                this.speed = 1 / flightTime;
+                
+                this.rotation = Math.atan2(this.targetY - startY, this.targetX - startX);
+                this.active = true;
+            }
+
+            update() {
+                if (!this.active) return;
+
+                this.progress += this.speed;
+                
+                // Linear interpolation to target
+                this.x = this.startX + (this.targetX - this.startX) * this.progress;
+                this.y = this.startY + (this.targetY - this.startY) * this.progress;
+
+                // Rotate slowly for effect
+                this.rotation += 0.05;
+
+                if (this.progress >= 1) {
+                    this.active = false;
+                    return true; // Hit target
+                }
+
+                return false;
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Paper airplane shape
+                ctx.fillStyle = "#FFFFFF";
+                ctx.strokeStyle = "#333";
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(15, 0);
+                ctx.lineTo(-10, -8);
+                ctx.lineTo(-10, 8);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Details
+                ctx.strokeStyle = "#666";
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.lineTo(15, 0);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        class Bird {
+            constructor() {
+                this.currentTreeIndex = -1;
+                this.nextTreeIndex = -1;
+                this.moveTimer = this.getRandomStayTime();
+                this.found = false;
+                this.flying = false;
+                this.flyProgress = 0;
+                this.flySpeed = 0;
+                this.x = 0;
+                this.y = 0;
+                this.startX = 0;
+                this.startY = 0;
+                this.targetX = 0;
+                this.targetY = 0;
+                this.wingFlap = 0;
+            }
+
+            getRandomStayTime() {
+                // Random time between 1.5-2 seconds
+                return 90 + Math.random() * 30;
+            }
+
+            update(trees) {
+                if (this.found) return;
+
+                if (this.flying) {
+                    // Flying animation
+                    this.flyProgress += this.flySpeed;
+                    this.wingFlap += 0.3;
+                    
+                    // Smooth arc movement
+                    const t = this.flyProgress;
+                    this.x = this.startX + (this.targetX - this.startX) * t;
+                    const arcHeight = 50 * Math.sin(t * Math.PI);
+                    this.y = this.startY + (this.targetY - this.startY) * t - arcHeight;
+                    
+                    if (this.flyProgress >= 1) {
+                        // Arrived at new tree
+                        this.flying = false;
+                        this.currentTreeIndex = this.nextTreeIndex;
+                        trees[this.currentTreeIndex].hasBird = true;
+                        this.moveTimer = this.getRandomStayTime();
+                    }
+                } else {
+                    // Sitting in tree
+                    this.moveTimer--;
+                    if (this.moveTimer <= 0) {
+                        // Start flying to a new random tree
+                        const oldTreeIndex = this.currentTreeIndex;
+                        let newTreeIndex;
+                        let attempts = 0;
+                        
+                        // Find an unoccupied tree (no other bird sitting there)
+                        do {
+                            newTreeIndex = Math.floor(Math.random() * trees.length);
+                            attempts++;
+                            if (attempts > 100) {
+                                // Safety: if can't find empty tree after 100 tries, just pick any
+                                newTreeIndex = Math.floor(Math.random() * trees.length);
+                                break;
+                            }
+                        } while (newTreeIndex === oldTreeIndex || trees[newTreeIndex].hasBird);
+
+                        // Remove from old tree
+                        if (oldTreeIndex >= 0) {
+                            trees[oldTreeIndex].hasBird = false;
+                            this.startX = trees[oldTreeIndex].x;
+                            this.startY = trees[oldTreeIndex].y - 20;
+                        }
+
+                        // Set target
+                        this.nextTreeIndex = newTreeIndex;
+                        this.targetX = trees[newTreeIndex].x;
+                        this.targetY = trees[newTreeIndex].y - 20;
+                        
+                        // Calculate fly speed (random 2-4 seconds)
+                        const flyTime = 120 + Math.random() * 120; // 2-4 seconds
+                        this.flySpeed = 1 / flyTime;
+                        
+                        this.flying = true;
+                        this.flyProgress = 0;
+                        this.x = this.startX;
+                        this.y = this.startY;
+                    }
+                }
+            }
+
+            draw() {
+                if (this.found || !this.flying) return;
+
+                // Draw flying bird
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Calculate rotation based on flight direction
+                const angle = Math.atan2(this.targetY - this.startY, this.targetX - this.startX);
+                ctx.rotate(angle);
+                
+                // Bird body
+                ctx.fillStyle = "#FF6B6B";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 10, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bird head
+                ctx.beginPath();
+                ctx.arc(8, -3, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(10, -3, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Beak
+                ctx.fillStyle = "#FFA500";
+                ctx.beginPath();
+                ctx.moveTo(13, -3);
+                ctx.lineTo(18, -2);
+                ctx.lineTo(13, -1);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Animated wings
+                const wingAngle = Math.sin(this.wingFlap) * 0.5;
+                ctx.strokeStyle = "#FF4444";
+                ctx.lineWidth = 3;
+                
+                // Left wing
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                const wingY = -12 + Math.sin(this.wingFlap) * 8;
+                ctx.lineTo(-10, wingY);
+                ctx.stroke();
+                
+                // Right wing
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-10, -wingY);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.trees = [];
+                this.birds = [];
+                this.airplanes = [];
+                this.gameState = "START";
+                this.time = GAME_TIME;
+                this.birdsFound = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.particles = [];
+                
+                this.initializeTrees();
+            }
+
+            initializeTrees() {
+                // Create randomly distributed trees (not grid!)
+                const minDistance = 50; // Minimum distance between trees (closer!)
+                const margin = 60;
+                
+                for (let i = 0; i < NUM_TREES; i++) {
+                    let x, y, tooClose;
+                    let attempts = 0;
+                    
+                    do {
+                        x = margin + Math.random() * (CANVAS_WIDTH - margin * 2);
+                        y = 150 + Math.random() * (CANVAS_HEIGHT - 250);
+                        tooClose = false;
+                        
+                        // Check distance from all existing trees
+                        for (const tree of this.trees) {
+                            const dx = x - tree.x;
+                            const dy = y - tree.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            if (distance < minDistance) {
+                                tooClose = true;
+                                break;
+                            }
+                        }
+                        
+                        attempts++;
+                        if (attempts > 100) break; // Prevent infinite loop
+                    } while (tooClose && attempts < 100);
+                    
+                    this.trees.push(new Tree(i, x, y));
+                }
+            }
+
+            start() {
+                this.birds = [];
+                this.airplanes = [];
+                this.particles = [];
+                this.time = GAME_TIME;
+                this.birdsFound = 0;
+                this.gameState = "PLAYING";
+
+                // Reset all trees
+                for (const tree of this.trees) {
+                    tree.hasBird = false;
+                    tree.birdRevealed = false;
+                }
+
+                // Create and place birds
+                for (let i = 0; i < NUM_BIRDS; i++) {
+                    const bird = new Bird();
+                    const randomTreeIndex = Math.floor(Math.random() * this.trees.length);
+                    bird.currentTreeIndex = randomTreeIndex;
+                    bird.x = this.trees[randomTreeIndex].x;
+                    bird.y = this.trees[randomTreeIndex].y - 20;
+                    this.trees[randomTreeIndex].hasBird = true;
+                    this.birds.push(bird);
+                }
+
+                // Reset displays
+                birdsFoundDisplay.textContent = `🐦 Birds: 0/${NUM_BIRDS}`;
+                timerDisplay.textContent = `⏱️ Time: ${GAME_TIME}s`;
+            }
+
+            createCelebrationParticles(x, y) {
+                for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 4;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 3,
+                        life: 60,
+                        maxLife: 60,
+                        color: ['#FFD700', '#FF6B6B', '#4CAF50', '#2196F3'][Math.floor(Math.random() * 4)],
+                        size: 4 + Math.random() * 4,
+                        update() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.vy += 0.2; // Gravity
+                            this.life--;
+                        }
+                    });
+                }
+            }
+
+            throwAirplane(targetTree) {
+                if (this.gameState !== "PLAYING") return;
+                
+                // Throw from bottom center
+                const airplane = new PaperAirplane(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 50, targetTree);
+                this.airplanes.push(airplane);
+                
+                targetTree.shake();
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update timer
+                this.time -= 1/60;
+                timerDisplay.textContent = `⏱️ Time: ${Math.max(0, this.time).toFixed(1)}s`;
+
+                if (this.time <= 0) {
+                    this.gameState = "LOST";
+                }
+
+                // Update birds (they move between trees)
+                for (const bird of this.birds) {
+                    bird.update(this.trees);
+                }
+
+                // Update trees
+                for (const tree of this.trees) {
+                    tree.update();
+                }
+
+                // Update airplanes
+                for (let i = this.airplanes.length - 1; i >= 0; i--) {
+                    const airplane = this.airplanes[i];
+                    const hit = airplane.update();
+
+                    if (hit) {
+                        // Check if bird is in the tree NOW (when airplane arrives)
+                        // This catches birds that arrived AFTER the plane was thrown!
+                        const targetTree = airplane.targetTree;
+                        
+                        // Find if any bird is currently in this tree (not flying, not already found)
+                        let caughtBird = null;
+                        for (const bird of this.birds) {
+                            if (!bird.found && !bird.flying && bird.currentTreeIndex === airplane.targetTreeId) {
+                                caughtBird = bird;
+                                break;
+                            }
+                        }
+                        
+                        if (caughtBird && !targetTree.birdRevealed) {
+                            // SUCCESS! Found a bird!
+                            targetTree.birdRevealed = true;
+                            this.birdsFound++;
+                            birdsFoundDisplay.textContent = `🐦 Birds: ${this.birdsFound}/${NUM_BIRDS}`;
+                            
+                            // Create celebration particles
+                            this.createCelebrationParticles(targetTree.x, targetTree.y - 20);
+                            
+                            // Mark bird as found (stays on tree permanently)
+                            caughtBird.found = true;
+                            caughtBird.x = targetTree.x;
+                            caughtBird.y = targetTree.y - 20;
+
+                            if (this.birdsFound >= NUM_BIRDS) {
+                                this.gameState = "WON";
+                            }
+                        }
+                        // Empty tree - DON'T mark as checked, stays hidden
+
+                        this.airplanes.splice(i, 1);
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update();
+                    if (this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+
+            draw() {
+                // Clear canvas - sky background
+                const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                gradient.addColorStop(0, "#87CEEB");
+                gradient.addColorStop(1, "#E0F6FF");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw ground
+                ctx.fillStyle = "#8BC34A";
+                ctx.fillRect(0, CANVAS_HEIGHT - 100, CANVAS_WIDTH, 100);
+
+                // Draw grass
+                ctx.strokeStyle = "#7CB342";
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 100; i++) {
+                    const x = (i * 47) % CANVAS_WIDTH;
+                    const y = CANVAS_HEIGHT - 100 + (i * 13) % 20;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x, y + 10);
+                    ctx.stroke();
+                }
+
+                // Draw trees
+                for (const tree of this.trees) {
+                    tree.draw();
+                }
+
+                // Draw flying birds (in transit between trees)
+                for (const bird of this.birds) {
+                    bird.draw();
+                }
+
+                // Draw airplanes
+                for (const airplane of this.airplanes) {
+                    airplane.draw();
+                }
+
+                // Draw celebration particles
+                for (const particle of this.particles) {
+                    const alpha = particle.life / particle.maxLife;
+                    ctx.fillStyle = particle.color;
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                // Draw player hint
+                if (this.gameState === "PLAYING") {
+                    ctx.fillStyle = "#333";
+                    ctx.font = "16px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🛩️ Click a tree to throw", CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+                }
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🐦 Bird Hunt 🌲", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120, "54px Arial", "#228B22");
+                    this.drawText("Find 5 birds hiding in 50 trees!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, "26px Arial", "#000");
+                    this.drawText("Click trees to throw paper airplanes", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "22px Arial", "#666");
+                    this.drawText("But birds fly away randomly...", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25, "20px Arial", "#FF6B6B");
+                    this.drawText("Be fast AND lucky!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55, "20px Arial", "#FF6B6B");
+                    this.drawText("Click anywhere to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 95, "18px Arial", "#888");
+                } else if (this.gameState === "LOST") {
+                    this.drawText("⏰ TIME'S UP! ⏰", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
+                    this.drawText(`Found ${this.birdsFound}/${NUM_BIRDS} birds`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "#000");
+                    this.drawText("The birds were too fast!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "22px Arial", "#666");
+                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 AMAZING! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 70, "52px Arial", "#FFD700");
+                    this.drawText(`Found all ${NUM_BIRDS} birds!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "32px Arial", "#4CAF50");
+                    this.drawText(`Time left: ${this.time.toFixed(1)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35, "24px Arial", "#000");
+                    this.drawText("You're a master bird hunter!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "20px Arial", "#666");
+                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105, "18px Arial", "#888");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.fillText(text, x + 3, y + 3);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                // Check if clicked on a tree
+                for (const tree of game.trees) {
+                    if (tree.contains(clickX, clickY)) {
+                        game.throwAirplane(tree);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "LOST" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        canvas.addEventListener("click", onClick);
+        document.addEventListener("keydown", onKeyDown);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

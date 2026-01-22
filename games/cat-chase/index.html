@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Chase - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            cursor: none;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+            cursor: none;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #2d5016;
+            cursor: none;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        #timer {
+            font-size: 48px;
+            color: #FFD700;
+        }
+        
+        #cats-alive {
+            font-size: 20px;
+            color: #FF6B6B;
+            margin-top: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #FFD700;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="game-info">
+            <div id="timer">30.0s</div>
+            <div id="cats-alive">🐱 Cats: 5</div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🐭 Cat Chase</h2>
+        <p>You are the <strong>MOUSE</strong>! Cats are chasing you!</p>
+        <p><strong>🧀 Avoid cheese traps</strong> - they're DEADLY!</p>
+        <p class="warning">⚡ Kill cats by touching their TAIL (purple circle)</p>
+        <p><small>Dead cats spawn 4 new cheese traps nearby!</small></p>
+        <p><strong>🏆 Survive for 30 seconds to WIN!</strong></p>
+        <p><small>Click to start • Press R to restart</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const timerDisplay = document.getElementById("timer");
+        const catsAliveDisplay = document.getElementById("cats-alive");
+
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const WIN_TIME = 30; // 30 seconds to survive
+
+        class Mouse {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT / 2;
+                this.radius = 12;
+            }
+
+            update(mouseX, mouseY) {
+                // Follow actual mouse position
+                this.x = mouseX;
+                this.y = mouseY;
+
+                // Keep in bounds
+                this.x = Math.max(this.radius, Math.min(CANVAS_WIDTH - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(CANVAS_HEIGHT - this.radius, this.y));
+            }
+
+            draw() {
+                // Draw mouse body
+                ctx.fillStyle = "#888";
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.radius, this.radius * 0.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw ears
+                ctx.fillStyle = "#888";
+                ctx.beginPath();
+                ctx.arc(this.x - 8, this.y - 8, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 8, this.y - 8, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw face
+                ctx.fillStyle = "#FFC0CB";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y + 3, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw eyes
+                ctx.fillStyle = "black";
+                ctx.beginPath();
+                ctx.arc(this.x - 4, this.y - 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 4, this.y - 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw tail
+                ctx.strokeStyle = "#888";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.quadraticCurveTo(this.x - 15, this.y + 10, this.x - 20, this.y - 5);
+                ctx.stroke();
+            }
+        }
+
+        class Cat {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 20;
+                this.speed = 2.5;
+                this.angle = 0;
+                this.tailAngle = 0;
+                this.tailRadius = 10;
+                this.alive = true;
+            }
+
+            update(mouse) {
+                if (!this.alive) return;
+
+                // Chase the mouse
+                const dx = mouse.x - this.x;
+                const dy = mouse.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 0) {
+                    this.x += (dx / distance) * this.speed;
+                    this.y += (dy / distance) * this.speed;
+                    
+                    // Smooth angle turning (slower rotation)
+                    const targetAngle = Math.atan2(dy, dx);
+                    let angleDiff = targetAngle - this.angle;
+                    
+                    // Normalize angle difference to [-PI, PI]
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    
+                    // Lerp the angle (0.03 = much slower turning, allows tail catching)
+                    this.angle += angleDiff * 0.03;
+                }
+
+                // Animate tail
+                this.tailAngle += 0.1;
+
+                // Keep in bounds
+                this.x = Math.max(this.radius, Math.min(CANVAS_WIDTH - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(CANVAS_HEIGHT - this.radius, this.y));
+            }
+
+            draw() {
+                if (!this.alive) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Draw tail (behind the cat)
+                const tailX = -this.radius - 15;
+                const tailY = Math.sin(this.tailAngle) * 10;
+                
+                // Tail hitbox (purple circle at the tip)
+                ctx.fillStyle = "rgba(138, 43, 226, 0.7)";
+                ctx.beginPath();
+                ctx.arc(tailX, tailY, this.tailRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Tail body
+                ctx.strokeStyle = "#FF6B6B";
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(-this.radius, 0);
+                ctx.quadraticCurveTo(tailX / 2, tailY / 2, tailX, tailY);
+                ctx.stroke();
+
+                // Draw cat body
+                ctx.fillStyle = "#FF6B6B";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.radius, this.radius * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw ears
+                ctx.fillStyle = "#FF6B6B";
+                ctx.beginPath();
+                ctx.moveTo(-8, -this.radius);
+                ctx.lineTo(-12, -this.radius - 10);
+                ctx.lineTo(-4, -this.radius);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(8, -this.radius);
+                ctx.lineTo(12, -this.radius - 10);
+                ctx.lineTo(4, -this.radius);
+                ctx.fill();
+
+                // Draw face
+                ctx.fillStyle = "white";
+                ctx.beginPath();
+                ctx.arc(-5, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(5, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw pupils
+                ctx.fillStyle = "black";
+                ctx.beginPath();
+                ctx.arc(-5, 0, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(5, 0, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw nose
+                ctx.fillStyle = "#FFB6C1";
+                ctx.beginPath();
+                ctx.arc(0, 5, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw whiskers
+                ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, 5);
+                ctx.lineTo(15, 3);
+                ctx.moveTo(0, 5);
+                ctx.lineTo(15, 7);
+                ctx.moveTo(0, 5);
+                ctx.lineTo(-15, 3);
+                ctx.moveTo(0, 5);
+                ctx.lineTo(-15, 7);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            getTailPosition() {
+                const tailX = this.x + Math.cos(this.angle) * (-this.radius - 15);
+                const tailY = this.y + Math.sin(this.angle) * (-this.radius - 15) + Math.sin(this.tailAngle) * 10;
+                return { x: tailX, y: tailY };
+            }
+
+            checkTailHit(mouse) {
+                if (!this.alive) return false;
+                
+                const tailPos = this.getTailPosition();
+                const dx = tailPos.x - mouse.x;
+                const dy = tailPos.y - mouse.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                return distance < this.tailRadius + mouse.radius;
+            }
+
+            checkBodyHit(mouse) {
+                if (!this.alive) return false;
+                
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                return distance < this.radius + mouse.radius;
+            }
+        }
+
+        class CheeseTrap {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 15;
+                this.rotation = Math.random() * Math.PI * 2;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Draw cheese
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0.2, Math.PI * 2 - 0.2);
+                ctx.lineTo(this.radius * 0.7, 0);
+                ctx.fill();
+
+                // Draw holes
+                ctx.fillStyle = "#FFA500";
+                ctx.beginPath();
+                ctx.arc(-5, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(3, 2, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(-2, 5, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            checkCollision(mouse) {
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius + mouse.radius;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.mouse = new Mouse();
+                this.cats = [];
+                this.cheeseTraps = [];
+                this.gameState = "START"; // START, PLAYING, DEAD, WON
+                this.time = WIN_TIME;
+                this.mouseX = CANVAS_WIDTH / 2;
+                this.mouseY = CANVAS_HEIGHT / 2;
+                this.particles = [];
+            }
+
+            start() {
+                this.mouse = new Mouse();
+                this.cats = [];
+                this.cheeseTraps = [];
+                this.time = WIN_TIME;
+                this.gameState = "PLAYING";
+                this.particles = [];
+
+                // Spawn initial cats
+                for (let i = 0; i < 5; i++) {
+                    const edge = Math.floor(Math.random() * 4);
+                    let x, y;
+                    if (edge === 0) { // Top
+                        x = Math.random() * CANVAS_WIDTH;
+                        y = 50;
+                    } else if (edge === 1) { // Right
+                        x = CANVAS_WIDTH - 50;
+                        y = Math.random() * CANVAS_HEIGHT;
+                    } else if (edge === 2) { // Bottom
+                        x = Math.random() * CANVAS_WIDTH;
+                        y = CANVAS_HEIGHT - 50;
+                    } else { // Left
+                        x = 50;
+                        y = Math.random() * CANVAS_HEIGHT;
+                    }
+                    this.cats.push(new Cat(x, y));
+                }
+
+                // Spawn initial cheese traps
+                for (let i = 0; i < 8; i++) {
+                    const x = 100 + Math.random() * (CANVAS_WIDTH - 200);
+                    const y = 100 + Math.random() * (CANVAS_HEIGHT - 200);
+                    this.cheeseTraps.push(new CheeseTrap(x, y));
+                }
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                this.time -= 1/60;
+                timerDisplay.textContent = Math.max(0, this.time).toFixed(1) + "s";
+
+                // Update mouse
+                this.mouse.update(this.mouseX, this.mouseY);
+
+                // Update cats
+                const aliveCats = this.cats.filter(cat => cat.alive).length;
+                catsAliveDisplay.textContent = `🐱 Cats: ${aliveCats}`;
+
+                for (const cat of this.cats) {
+                    cat.update(this.mouse);
+
+                    // Check if mouse touched the tail
+                    if (cat.checkTailHit(this.mouse)) {
+                        cat.alive = false;
+                        this.spawnCheeseFromCat(cat);
+                        this.createExplosion(cat.x, cat.y, "#FF6B6B");
+                    }
+
+                    // Check if cat caught the mouse (body collision)
+                    if (cat.checkBodyHit(this.mouse)) {
+                        this.gameState = "DEAD";
+                    }
+                }
+
+                // Remove dead cats after a delay
+                this.cats = this.cats.filter(cat => cat.alive);
+
+                // Check cheese trap collisions (cheese traps are deadly!)
+                for (const trap of this.cheeseTraps) {
+                    if (trap.checkCollision(this.mouse)) {
+                        this.gameState = "DEAD";
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update();
+                    if (this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Check win condition
+                if (this.time <= 0) {
+                    this.gameState = "WON";
+                }
+            }
+
+            spawnCheeseFromCat(cat) {
+                // Spawn 4 cheese traps in random places close to the dead cat
+                for (let i = 0; i < 4; i++) {
+                    const angle = (Math.PI * 2 / 4) * i + Math.random() * 0.5;
+                    const distance = 50 + Math.random() * 50;
+                    const x = cat.x + Math.cos(angle) * distance;
+                    const y = cat.y + Math.sin(angle) * distance;
+                    
+                    // Keep in bounds
+                    const boundedX = Math.max(30, Math.min(CANVAS_WIDTH - 30, x));
+                    const boundedY = Math.max(30, Math.min(CANVAS_HEIGHT - 30, y));
+                    
+                    this.cheeseTraps.push(new CheeseTrap(boundedX, boundedY));
+                }
+            }
+
+            createExplosion(x, y, color) {
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 4;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 60,
+                        maxLife: 60,
+                        color: color,
+                        size: 3 + Math.random() * 3,
+                        update() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.vy += 0.2; // Gravity
+                            this.life--;
+                        }
+                    });
+                }
+            }
+
+            draw() {
+                // Clear canvas with grass background
+                ctx.fillStyle = "#2d5016";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw grass texture
+                ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+                for (let i = 0; i < 100; i++) {
+                    const x = (i * 137.5) % CANVAS_WIDTH;
+                    const y = (i * 73.3) % CANVAS_HEIGHT;
+                    ctx.fillRect(x, y, 2, 8);
+                }
+
+                // Draw cheese traps
+                for (const trap of this.cheeseTraps) {
+                    trap.draw();
+                }
+
+                // Draw cats
+                for (const cat of this.cats) {
+                    cat.draw();
+                }
+
+                // Draw particles
+                for (const particle of this.particles) {
+                    const alpha = particle.life / particle.maxLife;
+                    ctx.fillStyle = particle.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw mouse
+                this.mouse.draw();
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🐭 Cat Chase 🐱", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText("Click anywhere to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText("Touch cat TAILS (purple) to eliminate them!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#DDA0DD");
+                    this.drawText("Avoid cat bodies and cheese!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "18px Arial", "#FFD700");
+                } else if (this.gameState === "DEAD") {
+                    this.drawText("🐱 CAUGHT BY A CAT! 🐱", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF6B6B");
+                    this.drawText("The cats got you!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 YOU SURVIVED! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText("The mouse escapes!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#4CAF50");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 3, y + 3);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "DEAD" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        function onClick(event) {
+            // Don't prevent default if clicking on a link
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START" || game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("click", onClick);
+        document.body.addEventListener("click", onClick);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

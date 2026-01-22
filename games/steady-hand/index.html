@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steady Hand - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            cursor: none;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+            cursor: none;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #0a0a0a;
+            cursor: crosshair;
+        }
+        
+        #timer-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #4CAF50;
+            text-shadow: 3px 3px 10px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #timer-display.warning {
+            color: #FFC107;
+            animation: pulse 0.5s infinite;
+        }
+        
+        #timer-display.critical {
+            color: #FF4444;
+            animation: shake 0.2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            25% { transform: translateX(-50%) translateY(-5px); }
+            75% { transform: translateX(-50%) translateY(5px); }
+        }
+        
+        #level-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #ff9800;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="timer-display">30.00</div>
+        <div id="level-display">Level 1/5</div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🎯 Steady Hand</h2>
+        <p>Guide the <strong>GREEN BALL</strong> through the narrow path to reach the goal</p>
+        <p><strong>DO NOT</strong> touch the edges • <strong>DO NOT</strong> leave the path</p>
+        <p class="warning">⚠️ Beat the countdown! Path gets narrower each level!</p>
+        <p><small>The ball follows your mouse with a slight delay - requires surgical precision!</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const timerDisplay = document.getElementById("timer-display");
+        const levelDisplay = document.getElementById("level-display");
+
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+
+        class Path {
+            constructor(level) {
+                this.level = level;
+                this.points = [];
+                this.width = Math.max(30, 80 - level * 8); // Gets narrower each level
+                this.maxReachedSegment = 0; // For tracking progress and preventing shortcuts
+                this.generatePath();
+            }
+
+            generatePath() {
+                this.points = [];
+                
+                // Start point
+                let x = 100;
+                let y = CANVAS_HEIGHT / 2;
+                this.points.push({x, y});
+
+                // Generate winding path
+                const segments = 15 + this.level * 3; // More segments = longer path
+                const maxTurn = Math.PI / 4; // Max turn angle
+                let angle = 0;
+
+                for (let i = 0; i < segments; i++) {
+                    // Vary the step size - SMALLER steps for harder levels
+                    const stepSize = this.level > 3 ? 35 + Math.random() * 20 : 40 + Math.random() * 30;
+                    
+                    // Random turn
+                    angle += (Math.random() - 0.5) * maxTurn;
+                    
+                    x += Math.cos(angle) * stepSize;
+                    y += Math.sin(angle) * stepSize;
+
+                    // Keep in bounds
+                    x = Math.max(100, Math.min(CANVAS_WIDTH - 100, x));
+                    y = Math.max(100, Math.min(CANVAS_HEIGHT - 100, y));
+
+                    this.points.push({x, y});
+
+                    // For harder levels, add smooth curves instead of zigzags
+                    if (this.level > 2 && i % 4 === 0) {
+                        // Add a smooth curve point
+                        const curveAngle = angle + (Math.random() - 0.5) * Math.PI / 3;
+                        const curveDistance = 25 + Math.random() * 15;
+                        const curveX = x + Math.cos(curveAngle) * curveDistance;
+                        const curveY = y + Math.sin(curveAngle) * curveDistance;
+                        
+                        // Ensure curve point is valid
+                        if (curveX > 100 && curveX < CANVAS_WIDTH - 100 && 
+                            curveY > 100 && curveY < CANVAS_HEIGHT - 100) {
+                            this.points.push({x: curveX, y: curveY});
+                            
+                            // Return to main path smoothly
+                            x += Math.cos(angle) * 20;
+                            y += Math.sin(angle) * 20;
+                            x = Math.max(100, Math.min(CANVAS_WIDTH - 100, x));
+                            y = Math.max(100, Math.min(CANVAS_HEIGHT - 100, y));
+                            this.points.push({x, y});
+                        }
+                    }
+                }
+
+                // End point
+                this.endPoint = {x, y};
+                this.startPoint = this.points[0];
+            }
+
+            draw(progress) {
+                // Draw completed path (green)
+                if (progress > 0) {
+                    ctx.strokeStyle = "rgba(76, 175, 80, 0.5)";
+                    ctx.lineWidth = this.width;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.points[0].x, this.points[0].y);
+                    
+                    const completedPoints = Math.floor(this.points.length * progress);
+                    for (let i = 1; i <= completedPoints; i++) {
+                        ctx.lineTo(this.points[i].x, this.points[i].y);
+                    }
+                    ctx.stroke();
+                }
+
+                // Draw remaining path (dark gray)
+                ctx.strokeStyle = "#2a2a2a";
+                ctx.lineWidth = this.width;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+                
+                for (let i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.stroke();
+
+                // Draw path edges (red danger zones)
+                ctx.strokeStyle = "#FF4444";
+                ctx.lineWidth = 3;
+                
+                // Outer edge
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+                for (let i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.stroke();
+
+                // Start marker
+                ctx.fillStyle = "#4CAF50";
+                ctx.beginPath();
+                ctx.arc(this.startPoint.x, this.startPoint.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("START", this.startPoint.x, this.startPoint.y);
+
+                // End marker
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath();
+                ctx.arc(this.endPoint.x, this.endPoint.y, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "black";
+                ctx.font = "bold 16px Arial";
+                ctx.fillText("GOAL", this.endPoint.x, this.endPoint.y);
+            }
+
+            isOnPath(x, y) {
+                // Find closest segment and distance
+                let minDist = Infinity;
+                let closestSegmentIndex = -1;
+                
+                for (let i = 0; i < this.points.length - 1; i++) {
+                    const p1 = this.points[i];
+                    const p2 = this.points[i + 1];
+                    
+                    const dist = this.distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestSegmentIndex = i;
+                    }
+                }
+                
+                // Must be within path width
+                if (minDist > this.width / 2) {
+                    return false;
+                }
+                
+                // ANTI-SHORTCUT SYSTEM: Track progress and prevent jumping ahead
+                if (this.maxReachedSegment === undefined) {
+                    this.maxReachedSegment = 0;
+                }
+                
+                // Player can only be on current segment or up to 2 segments ahead
+                // This prevents cutting corners on zigzags
+                if (closestSegmentIndex > this.maxReachedSegment + 2) {
+                    // Player is trying to skip ahead - invalid!
+                    return false;
+                }
+                
+                // Update max reached segment
+                if (closestSegmentIndex > this.maxReachedSegment) {
+                    this.maxReachedSegment = closestSegmentIndex;
+                }
+                
+                return true;
+            }
+
+            distanceToSegment(px, py, x1, y1, x2, y2) {
+                const A = px - x1;
+                const B = py - y1;
+                const C = x2 - x1;
+                const D = y2 - y1;
+
+                const dot = A * C + B * D;
+                const lenSq = C * C + D * D;
+                let param = -1;
+                
+                if (lenSq !== 0) {
+                    param = dot / lenSq;
+                }
+
+                let xx, yy;
+
+                if (param < 0) {
+                    xx = x1;
+                    yy = y1;
+                } else if (param > 1) {
+                    xx = x2;
+                    yy = y2;
+                } else {
+                    xx = x1 + param * C;
+                    yy = y1 + param * D;
+                }
+
+                const dx = px - xx;
+                const dy = py - yy;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            getProgress(x, y) {
+                let closestDist = Infinity;
+                let closestIndex = 0;
+
+                for (let i = 0; i < this.points.length; i++) {
+                    const dx = x - this.points[i].x;
+                    const dy = y - this.points[i].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIndex = i;
+                    }
+                }
+
+                return closestIndex / (this.points.length - 1);
+            }
+
+            isAtGoal(x, y) {
+                const dx = x - this.endPoint.x;
+                const dy = y - this.endPoint.y;
+                return Math.sqrt(dx * dx + dy * dy) < 30;
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, size, speed) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.vx = speed * (Math.random() - 0.5);
+                this.vy = speed * (Math.random() - 0.5);
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off walls
+                if (this.x < this.size || this.x > CANVAS_WIDTH - this.size) {
+                    this.vx *= -1;
+                }
+                if (this.y < this.size || this.y > CANVAS_HEIGHT - this.size) {
+                    this.vy *= -1;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = "#e74c3c";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Pulse effect
+                ctx.strokeStyle = "rgba(231, 76, 60, 0.5)";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            checkCollision(x, y, cursorSize) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.size + cursorSize;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.level = 1;
+                this.maxLevel = 5;
+                this.path = new Path(this.level);
+                this.obstacles = [];
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.ballX = 0;
+                this.ballY = 0;
+                this.gameState = "START"; // START, PLAYING, FAILED, WON, LEVEL_COMPLETE
+                this.timeLeft = 30;
+                this.started = false;
+                this.progress = 0;
+                this.ballRadius = 10;
+                this.shakeMagnitude = 0;
+                this.totalScore = 0;
+                this.levelScores = [];
+                
+                this.generateObstacles();
+            }
+
+            generateObstacles() {
+                this.obstacles = [];
+                if (this.level >= 3) {
+                    // Add obstacles from level 3+
+                    const numObstacles = this.level - 2;
+                    for (let i = 0; i < numObstacles; i++) {
+                        this.obstacles.push(new Obstacle(
+                            200 + Math.random() * 400,
+                            150 + Math.random() * 300,
+                            15 + Math.random() * 10,
+                            0.5 + this.level * 0.3
+                        ));
+                    }
+                }
+            }
+
+            nextLevel() {
+                // Calculate score for completed level (based on time left)
+                const levelScore = Math.floor(this.timeLeft * 100);
+                this.levelScores.push(levelScore);
+                this.totalScore += levelScore;
+                
+                this.level++;
+                if (this.level > this.maxLevel) {
+                    this.gameState = "WON";
+                    return;
+                }
+                
+                this.path = new Path(this.level);
+                this.generateObstacles();
+                this.timeLeft = 30 - (this.level - 1) * 2; // Less time each level
+                this.progress = 0;
+                this.started = false;
+                this.ballX = this.path.startPoint.x;
+                this.ballY = this.path.startPoint.y;
+                this.gameState = "PLAYING";
+                levelDisplay.textContent = `Level ${this.level}/${this.maxLevel}`;
+            }
+
+            start() {
+                this.level = 1;
+                this.path = new Path(this.level);
+                this.generateObstacles();
+                this.timeLeft = 30;
+                this.gameState = "PLAYING";
+                this.started = false;
+                this.progress = 0;
+                this.shakeMagnitude = 0;
+                this.totalScore = 0;
+                this.levelScores = [];
+                this.ballX = this.path.startPoint.x;
+                this.ballY = this.path.startPoint.y;
+                levelDisplay.textContent = `Level ${this.level}/${this.maxLevel}`;
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Ball smoothly follows mouse
+                const dx = this.mouseX - this.ballX;
+                const dy = this.mouseY - this.ballY;
+                const smoothing = 0.12; // Smooth following
+                this.ballX += dx * smoothing;
+                this.ballY += dy * smoothing;
+
+                // Check if ball is near start to begin
+                if (!this.started) {
+                    const startDx = this.ballX - this.path.startPoint.x;
+                    const startDy = this.ballY - this.path.startPoint.y;
+                    if (Math.sqrt(startDx * startDx + startDy * startDy) < 30) {
+                        this.started = true;
+                    }
+                    return;
+                }
+
+                // Update timer
+                this.timeLeft -= deltaTime;
+                
+                // Update timer display color and animation
+                timerDisplay.textContent = this.timeLeft.toFixed(2);
+                if (this.timeLeft < 5) {
+                    timerDisplay.className = "critical";
+                    this.shakeMagnitude = 3;
+                } else if (this.timeLeft < 10) {
+                    timerDisplay.className = "warning";
+                    this.shakeMagnitude = 1;
+                } else {
+                    timerDisplay.className = "";
+                    this.shakeMagnitude = 0;
+                }
+
+                // Time's up
+                if (this.timeLeft <= 0) {
+                    this.gameState = "FAILED";
+                    return;
+                }
+
+                // Update obstacles
+                for (const obstacle of this.obstacles) {
+                    obstacle.update();
+                    if (obstacle.checkCollision(this.ballX, this.ballY, this.ballRadius)) {
+                        this.gameState = "FAILED";
+                        return;
+                    }
+                }
+
+                // Check if ball is on path
+                if (!this.path.isOnPath(this.ballX, this.ballY)) {
+                    this.gameState = "FAILED";
+                    return;
+                }
+
+                // Update progress
+                this.progress = Math.max(this.progress, this.path.getProgress(this.ballX, this.ballY));
+
+                // Check if reached goal
+                if (this.path.isAtGoal(this.ballX, this.ballY)) {
+                    this.gameState = "LEVEL_COMPLETE";
+                }
+            }
+
+            draw() {
+                // Apply shake effect
+                ctx.save();
+                if (this.shakeMagnitude > 0) {
+                    ctx.translate(
+                        (Math.random() - 0.5) * this.shakeMagnitude,
+                        (Math.random() - 0.5) * this.shakeMagnitude
+                    );
+                }
+
+                // Clear canvas
+                ctx.fillStyle = "#0a0a0a";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw grid
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+                ctx.lineWidth = 1;
+                for (let x = 0; x < CANVAS_WIDTH; x += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, CANVAS_HEIGHT);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < CANVAS_HEIGHT; y += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(CANVAS_WIDTH, y);
+                    ctx.stroke();
+                }
+
+                // Draw path
+                this.path.draw(this.progress);
+
+                // Draw obstacles
+                for (const obstacle of this.obstacles) {
+                    obstacle.draw();
+                }
+
+                // Draw ball (always visible)
+                if (this.gameState === "PLAYING") {
+                    // Ball shadow
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                    ctx.beginPath();
+                    ctx.arc(this.ballX + 3, this.ballY + 3, this.ballRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Ball glow
+                    ctx.fillStyle = "rgba(76, 175, 80, 0.4)";
+                    ctx.beginPath();
+                    ctx.arc(this.ballX, this.ballY, this.ballRadius + 5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Ball body
+                    const gradient = ctx.createRadialGradient(
+                        this.ballX - 3, this.ballY - 3, 2,
+                        this.ballX, this.ballY, this.ballRadius
+                    );
+                    gradient.addColorStop(0, "#81C784");
+                    gradient.addColorStop(1, "#4CAF50");
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.ballX, this.ballY, this.ballRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Ball shine
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                    ctx.beginPath();
+                    ctx.arc(this.ballX - 4, this.ballY - 4, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw line from ball to mouse (shows control)
+                    if (!this.started) {
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(this.ballX, this.ballY);
+                        ctx.lineTo(this.mouseX, this.mouseY);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                }
+
+                ctx.restore();
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("Steady Hand Required", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "36px Arial", "white");
+                    this.drawText("Guide the GREEN BALL to START", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "20px Arial", "#888");
+                    this.drawText("Stay on the path • Don't touch edges!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#ff9800");
+                    this.drawText("Click to begin", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "16px Arial", "#4CAF50");
+                } else if (this.gameState === "FAILED") {
+                    this.drawText("FAILED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "64px Arial", "#e74c3c");
+                    this.drawText("Your hand wasn't steady enough", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
+                    this.drawText(`Level ${this.level} • Progress: ${(this.progress * 100).toFixed(1)}%`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "20px Arial", "#888");
+                    this.drawText("Press R or Click to retry", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "LEVEL_COMPLETE") {
+                    this.drawText(`Level ${this.level} Complete!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText(`Time remaining: ${this.timeLeft.toFixed(2)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
+                    this.drawText("Click for next level", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60, "20px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    // Draw victory screen with score breakdown
+                    this.drawText("🏆 PERFECT PRECISION! 🏆", CANVAS_WIDTH / 2, 80, "42px Arial", "#FFD700");
+                    this.drawText("All 5 Levels Completed!", CANVAS_WIDTH / 2, 140, "24px Arial", "white");
+                    
+                    // Score breakdown
+                    this.drawText("SCORE BREAKDOWN", CANVAS_WIDTH / 2, 200, "20px Arial", "#888");
+                    
+                    let yPos = 240;
+                    for (let i = 0; i < this.levelScores.length; i++) {
+                        const scoreText = `Level ${i + 1}: ${this.levelScores[i]} pts`;
+                        this.drawText(scoreText, CANVAS_WIDTH / 2, yPos, "18px Arial", "white");
+                        yPos += 35;
+                    }
+                    
+                    // Total score
+                    this.drawText("─────────────────", CANVAS_WIDTH / 2, yPos + 10, "20px Arial", "#666");
+                    this.drawText(`TOTAL SCORE: ${this.totalScore}`, CANVAS_WIDTH / 2, yPos + 50, "32px Arial", "#FFD700");
+                    
+                    // Rank based on score
+                    let rank = "Amateur";
+                    if (this.totalScore > 10000) rank = "LEGENDARY";
+                    else if (this.totalScore > 8000) rank = "Master";
+                    else if (this.totalScore > 6000) rank = "Expert";
+                    else if (this.totalScore > 4000) rank = "Professional";
+                    
+                    this.drawText(`Rank: ${rank}`, CANVAS_WIDTH / 2, yPos + 95, "22px Arial", "#4CAF50");
+                    this.drawText("Click or Press R to play again", CANVAS_WIDTH / 2, yPos + 135, "18px Arial", "#888");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = Date.now();
+
+        // Game loop
+        function gameLoop() {
+            const now = Date.now();
+            const deltaTime = (now - lastTime) / 1000;
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "FAILED" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        function onClick(event) {
+            // Don't prevent default if clicking on a link
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START" || game.gameState === "FAILED" || game.gameState === "WON") {
+                game.start();
+            } else if (game.gameState === "LEVEL_COMPLETE") {
+                game.nextLevel();
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("click", onClick);
+        document.body.addEventListener("click", onClick);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounce - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #87CEEB;
+            cursor: default;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="game-info">
+            <span id="lives">❤️ x 5</span>
+            <span id="level">Level: 1</span>
+            <span id="score">Score: 0</span>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>⚫ Bounce</h2>
+        <p>Use <strong>← →</strong> Arrow Keys to move</p>
+        <p>Collect ❤️ hearts • Don't fall off! • Press <strong>R</strong> to restart</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const livesDisplay = document.getElementById("lives");
+        const levelDisplay = document.getElementById("level");
+        const scoreDisplay = document.getElementById("score");
+
+        const CANVAS_WIDTH = 400;
+        const CANVAS_HEIGHT = 600;
+        const GRAVITY = 0.5;
+        const BOUNCE_DAMPING = 0.85;
+        const MOVE_SPEED = 5;
+        const BALL_RADIUS = 15;
+
+        class Ball {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = 100;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.radius = BALL_RADIUS;
+            }
+
+            update(platforms) {
+                // Apply gravity
+                this.velocityY += GRAVITY;
+
+                // Apply horizontal movement
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+
+                // Wall collision
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.velocityX *= -0.5;
+                } else if (this.x + this.radius > CANVAS_WIDTH) {
+                    this.x = CANVAS_WIDTH - this.radius;
+                    this.velocityX *= -0.5;
+                }
+
+                // Platform collision
+                for (const platform of platforms) {
+                    if (platform.checkCollision(this)) {
+                        // Bounce off platform
+                        this.y = platform.y - this.radius;
+                        this.velocityY = -Math.abs(this.velocityY) * BOUNCE_DAMPING;
+                        
+                        // Minimum bounce velocity
+                        if (Math.abs(this.velocityY) < 8) {
+                            this.velocityY = -8;
+                        }
+                    }
+                }
+
+                // Apply friction
+                this.velocityX *= 0.95;
+            }
+
+            draw() {
+                // Draw shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y + 5, this.radius, this.radius * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw ball gradient
+                const gradient = ctx.createRadialGradient(
+                    this.x - 5, this.y - 5, 2,
+                    this.x, this.y, this.radius
+                );
+                gradient.addColorStop(0, "#FF6B6B");
+                gradient.addColorStop(1, "#C92A2A");
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Shine effect
+                ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.beginPath();
+                ctx.arc(this.x - 5, this.y - 5, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            isDead() {
+                return this.y - this.radius > CANVAS_HEIGHT;
+            }
+        }
+
+        class Platform {
+            constructor(x, y, width, height, type = "solid") {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type; // solid, breakable
+            }
+
+            checkCollision(ball) {
+                if (ball.velocityY > 0 &&
+                    ball.x + ball.radius > this.x &&
+                    ball.x - ball.radius < this.x + this.width &&
+                    ball.y + ball.radius > this.y &&
+                    ball.y + ball.radius < this.y + this.height + 10) {
+                    return true;
+                }
+                return false;
+            }
+
+            draw() {
+                // Platform color based on type
+                const color = this.type === "solid" ? "#D73A2A" : "#E85D4A";
+                
+                // Draw shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.fillRect(this.x + 2, this.y + 2, this.width, this.height);
+
+                // Draw platform
+                ctx.fillStyle = color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                // Draw brick pattern
+                ctx.strokeStyle = "#A62116";
+                ctx.lineWidth = 2;
+                const brickWidth = 20;
+                for (let i = 0; i < this.width; i += brickWidth) {
+                    ctx.strokeRect(this.x + i, this.y, brickWidth, this.height);
+                }
+
+                // Highlight
+                ctx.fillStyle = "rgba(255, 100, 100, 0.3)";
+                ctx.fillRect(this.x, this.y, this.width, 3);
+            }
+        }
+
+        class Heart {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 20;
+                this.collected = false;
+                this.pulse = 0;
+            }
+
+            checkCollision(ball) {
+                const dx = ball.x - this.x;
+                const dy = ball.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < ball.radius + this.size / 2;
+            }
+
+            update() {
+                this.pulse += 0.1;
+            }
+
+            draw() {
+                if (this.collected) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                const scale = 1 + Math.sin(this.pulse) * 0.1;
+                ctx.scale(scale, scale);
+
+                // Draw heart
+                ctx.fillStyle = "#FF1744";
+                ctx.beginPath();
+                ctx.moveTo(0, 5);
+                ctx.bezierCurveTo(-10, -5, -20, 5, 0, 20);
+                ctx.bezierCurveTo(20, 5, 10, -5, 0, 5);
+                ctx.fill();
+
+                // Shine
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.beginPath();
+                ctx.arc(-5, -2, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.ball = new Ball();
+                this.platforms = [];
+                this.hearts = [];
+                this.lives = 5;
+                this.score = 0;
+                this.level = 1;
+                this.gameState = "START"; // START, PLAYING, GAME_OVER, LEVEL_COMPLETE
+                this.keys = {};
+                this.cameraY = 0;
+                this.levelHeight = 2000;
+                
+                this.loadLevel(1);
+            }
+
+            loadLevel(levelNum) {
+                this.platforms = [];
+                this.hearts = [];
+                this.level = levelNum;
+                this.cameraY = 0;
+
+                // Generate platforms based on level
+                if (levelNum === 1) {
+                    // Starting platform
+                    this.platforms.push(new Platform(150, 550, 100, 20, "solid"));
+                    
+                    // Level 1 - Simple pyramid pattern
+                    for (let row = 0; row < 10; row++) {
+                        const y = 500 - row * 80;
+                        const numPlatforms = 2 + row % 3;
+                        const spacing = CANVAS_WIDTH / (numPlatforms + 1);
+                        
+                        for (let i = 0; i < numPlatforms; i++) {
+                            const x = spacing * (i + 1) - 40;
+                            this.platforms.push(new Platform(x, y, 80, 15, "solid"));
+                        }
+                    }
+
+                    // Add hearts
+                    this.hearts.push(new Heart(200, 400));
+                    this.hearts.push(new Heart(150, 200));
+                    this.hearts.push(new Heart(300, 100));
+                    this.hearts.push(new Heart(100, -100));
+                    this.hearts.push(new Heart(250, -300));
+                    
+                } else if (levelNum === 2) {
+                    // Starting platform
+                    this.platforms.push(new Platform(150, 550, 100, 20, "solid"));
+                    
+                    // Level 2 - Zigzag pattern
+                    let x = 50;
+                    let direction = 1;
+                    for (let row = 0; row < 15; row++) {
+                        const y = 500 - row * 60;
+                        this.platforms.push(new Platform(x, y, 100, 15, "solid"));
+                        
+                        x += direction * 80;
+                        if (x < 30 || x > CANVAS_WIDTH - 130) {
+                            direction *= -1;
+                        }
+                    }
+
+                    // Add hearts
+                    for (let i = 0; i < 7; i++) {
+                        this.hearts.push(new Heart(
+                            50 + Math.random() * 300,
+                            400 - i * 150
+                        ));
+                    }
+                    
+                } else {
+                    // Level 3+ - Random challenging layout
+                    this.platforms.push(new Platform(150, 550, 100, 20, "solid"));
+                    
+                    for (let row = 0; row < 20; row++) {
+                        const y = 500 - row * 50;
+                        const numPlatforms = 2 + Math.floor(Math.random() * 3);
+                        
+                        for (let i = 0; i < numPlatforms; i++) {
+                            const x = Math.random() * (CANVAS_WIDTH - 100);
+                            const width = 60 + Math.random() * 60;
+                            this.platforms.push(new Platform(x, y, width, 15, "solid"));
+                        }
+                    }
+
+                    // Add many hearts
+                    for (let i = 0; i < 10; i++) {
+                        this.hearts.push(new Heart(
+                            50 + Math.random() * 300,
+                            400 - i * 120
+                        ));
+                    }
+                }
+
+                // Reset ball position
+                this.ball = new Ball();
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                // Handle input
+                if (this.keys["ArrowLeft"]) {
+                    this.ball.velocityX = -MOVE_SPEED;
+                } else if (this.keys["ArrowRight"]) {
+                    this.ball.velocityX = MOVE_SPEED;
+                }
+
+                // Update ball
+                this.ball.update(this.platforms);
+
+                // Update hearts
+                for (const heart of this.hearts) {
+                    heart.update();
+                    if (!heart.collected && heart.checkCollision(this.ball)) {
+                        heart.collected = true;
+                        this.score += 100;
+                        scoreDisplay.textContent = `Score: ${this.score}`;
+                    }
+                }
+
+                // Camera follows ball when it goes up
+                if (this.ball.y < CANVAS_HEIGHT / 3) {
+                    this.cameraY = this.ball.y - CANVAS_HEIGHT / 3;
+                }
+
+                // Check if ball fell
+                if (this.ball.isDead()) {
+                    this.lives--;
+                    livesDisplay.textContent = `❤️ x ${this.lives}`;
+                    
+                    if (this.lives <= 0) {
+                        this.gameState = "GAME_OVER";
+                    } else {
+                        // Respawn
+                        this.ball = new Ball();
+                        this.cameraY = 0;
+                    }
+                }
+
+                // Check if reached top (level complete)
+                if (this.ball.y < -400) {
+                    this.gameState = "LEVEL_COMPLETE";
+                }
+            }
+
+            draw() {
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Sky gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                gradient.addColorStop(0, "#87CEEB");
+                gradient.addColorStop(1, "#B0E0E6");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Save context and apply camera
+                ctx.save();
+                ctx.translate(0, -this.cameraY);
+
+                // Draw platforms
+                for (const platform of this.platforms) {
+                    platform.draw();
+                }
+
+                // Draw hearts
+                for (const heart of this.hearts) {
+                    heart.draw();
+                }
+
+                // Draw ball
+                this.ball.draw();
+
+                ctx.restore();
+
+                // Draw UI messages
+                if (this.gameState === "START") {
+                    this.drawText("Press SPACE or CLICK to Start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
+                    this.drawText("Use ← → to move", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "white");
+                } else if (this.gameState === "GAME_OVER") {
+                    this.drawText("GAME OVER!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, "48px Arial", "#FF4444");
+                    this.drawText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20, "32px Arial", "white");
+                    this.drawText("Press R to Restart", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "24px Arial", "white");
+                } else if (this.gameState === "LEVEL_COMPLETE") {
+                    this.drawText(`Level ${this.level} Complete!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, "36px Arial", "#4CAF50");
+                    this.drawText(`Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20, "28px Arial", "white");
+                    this.drawText("Press SPACE for Next Level", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "20px Arial", "white");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillText(text, x + 3, y + 3);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+
+            restart() {
+                this.lives = 5;
+                this.score = 0;
+                this.level = 1;
+                this.loadLevel(1);
+                this.gameState = "PLAYING";
+                livesDisplay.textContent = `❤️ x ${this.lives}`;
+                levelDisplay.textContent = `Level: ${this.level}`;
+                scoreDisplay.textContent = `Score: ${this.score}`;
+            }
+
+            nextLevel() {
+                this.level++;
+                this.loadLevel(this.level);
+                this.gameState = "PLAYING";
+                levelDisplay.textContent = `Level: ${this.level}`;
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onKeyDown(event) {
+            const key = event.key;
+            game.keys[key] = true;
+
+            if (key === " " || key === "Spacebar") {
+                event.preventDefault();
+                if (game.gameState === "START") {
+                    game.start();
+                } else if (game.gameState === "LEVEL_COMPLETE") {
+                    game.nextLevel();
+                }
+            } else if (key === "r" || key === "R") {
+                if (game.gameState === "GAME_OVER") {
+                    game.restart();
+                }
+            }
+        }
+
+        function onKeyUp(event) {
+            game.keys[event.key] = false;
+        }
+
+        function onClick(event) {
+            // Don't prevent default if clicking on a link
+            if (event.target.tagName === 'A') {
+                return;
+            }
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "LEVEL_COMPLETE") {
+                game.nextLevel();
+            }
+        }
+
+        // Attach event listeners
+        document.addEventListener("keydown", onKeyDown);
+        document.addEventListener("keyup", onKeyUp);
+        canvas.addEventListener("click", onClick);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

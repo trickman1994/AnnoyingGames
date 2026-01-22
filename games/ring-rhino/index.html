@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ring the Rhino - Game Arcade</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #87CEEB;
+            cursor: crosshair;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+        
+        .stat {
+            font-size: 20px;
+        }
+        
+        #timer {
+            color: #FFD700;
+        }
+        
+        #rings-on {
+            color: #4CAF50;
+        }
+        
+        #head-hits {
+            color: #FF6B6B;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">Home</a>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="game-info">
+            <div id="stats">
+                <div class="stat" id="rings-on">🎯 Rings: 0/10</div>
+                <div class="stat" id="timer">⏱️ Time: 0s</div>
+                <div class="stat" id="head-hits">💥 Head hits: 0/7</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>🦏 Ring the Rhino</h2>
+        <p>The rhino is sleeping... Put <strong>10 rings on his horn</strong> to win!</p>
+        <p class="warning">⚠️ DON'T WAKE HIM UP!</p>
+        <p><strong>Wake conditions:</strong></p>
+        <p>🔴 Hit his HEAD 7 times = instant wake up!</p>
+        <p>⏰ After 20 seconds, he might wake randomly</p>
+        <p><strong>Difficulty:</strong></p>
+        <p>🪰 Flies annoy him - he moves his head FAST!</p>
+        <p>💨 Random wind affects your throws!</p>
+        <p>✅ Hitting his body is OK (doesn't count)</p>
+        <p><small>Click to throw rings • Press R to restart</small></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const ringsOnDisplay = document.getElementById("rings-on");
+        const timerDisplay = document.getElementById("timer");
+        const headHitsDisplay = document.getElementById("head-hits");
+
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const MAX_HEAD_HITS = 7;
+        const DANGER_TIME = 20; // After 20 seconds, random wake ups
+
+        class Rhino {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT - 150;
+                this.headOffsetX = 0;
+                this.headOffsetY = 0;
+                this.targetHeadOffsetX = 0;
+                this.targetHeadOffsetY = 0;
+                this.moveTimer = Math.random() * 40 + 20; // Much faster movements
+                this.sleeping = true;
+                this.eyesClosed = true;
+                this.snorePhase = 0;
+                this.hornAngle = -0.3;
+                this.irritation = 0; // How annoyed by flies
+            }
+
+            update() {
+                // Animate snoring
+                this.snorePhase += 0.05;
+
+                if (this.sleeping) {
+                    // Faster and BIGGER random head movements (annoyed by flies!)
+                    this.moveTimer--;
+                    if (this.moveTimer <= 0) {
+                        // Much bigger movements (increased from 20/15 to 60/40)
+                        this.targetHeadOffsetX = (Math.random() - 0.5) * 60;
+                        this.targetHeadOffsetY = (Math.random() - 0.5) * 40;
+                        
+                        // Much faster movements (shorter timer)
+                        this.moveTimer = Math.random() * 50 + 15;
+                        
+                        // Random irritation level
+                        this.irritation = Math.random();
+                    }
+
+                    // Faster head movement (increased from 0.02 to 0.08)
+                    const speed = 0.08 + this.irritation * 0.05;
+                    this.headOffsetX += (this.targetHeadOffsetX - this.headOffsetX) * speed;
+                    this.headOffsetY += (this.targetHeadOffsetY - this.headOffsetY) * speed;
+                } else {
+                    // Wake up animation
+                    this.eyesClosed = false;
+                    this.headOffsetY = -30; // Head lifts up
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Draw body
+                ctx.fillStyle = "#696969";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 120, 80, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw legs
+                ctx.fillStyle = "#5a5a5a";
+                for (let i = -1; i <= 1; i += 2) {
+                    ctx.fillRect(i * 60 - 15, 50, 30, 60);
+                }
+
+                // Draw head (with offset for movement)
+                ctx.save();
+                ctx.translate(this.headOffsetX, this.headOffsetY);
+                ctx.translate(-50, -40);
+
+                // Head
+                ctx.fillStyle = "#696969";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 50, 45, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Snout
+                ctx.fillStyle = "#5a5a5a";
+                ctx.beginPath();
+                ctx.ellipse(-30, 10, 25, 20, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Horn (the target!) - Much bigger and more visible
+                const hornX = -20;
+                const hornY = 0;
+                
+                // Horn shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.beginPath();
+                ctx.moveTo(hornX + 2, hornY + 2);
+                ctx.lineTo(hornX - 48, hornY - 78);
+                ctx.lineTo(hornX - 38, hornY - 76);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Main horn
+                ctx.fillStyle = "#F5DEB3";
+                ctx.beginPath();
+                ctx.moveTo(hornX, hornY);
+                ctx.lineTo(hornX - 50, hornY - 80);
+                ctx.lineTo(hornX - 40, hornY - 78);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Horn highlight
+                ctx.fillStyle = "#FAEBD7";
+                ctx.beginPath();
+                ctx.moveTo(hornX - 5, hornY - 10);
+                ctx.lineTo(hornX - 42, hornY - 75);
+                ctx.lineTo(hornX - 40, hornY - 78);
+                ctx.closePath();
+                ctx.fill();
+
+                // Horn tip TARGET - Big glowing circle
+                const hornTipX = hornX - 45;
+                const hornTipY = hornY - 79;
+                
+                // Pulsing glow effect
+                const pulseSize = 15 + Math.sin(Date.now() / 200) * 3;
+                const gradient = ctx.createRadialGradient(hornTipX, hornTipY, 5, hornTipX, hornTipY, pulseSize);
+                gradient.addColorStop(0, "rgba(255, 215, 0, 0.8)");
+                gradient.addColorStop(0.5, "rgba(255, 215, 0, 0.4)");
+                gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(hornTipX, hornTipY, pulseSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bright target circle
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath();
+                ctx.arc(hornTipX, hornTipY, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Inner target
+                ctx.fillStyle = "#FFA500";
+                ctx.beginPath();
+                ctx.arc(hornTipX, hornTipY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Center dot
+                ctx.fillStyle = "#FF4500";
+                ctx.beginPath();
+                ctx.arc(hornTipX, hornTipY, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ear
+                ctx.fillStyle = "#696969";
+                ctx.beginPath();
+                ctx.ellipse(15, -30, 15, 20, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eye
+                if (this.sleeping) {
+                    // Closed eyes
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(-10, -10, 8, 0.2, Math.PI - 0.2);
+                    ctx.stroke();
+
+                    // Snoring Z's
+                    if (Math.sin(this.snorePhase) > 0) {
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+                        ctx.font = "20px Arial";
+                        ctx.fillText("Z", 30, -50);
+                        ctx.font = "16px Arial";
+                        ctx.fillText("z", 45, -65);
+                        ctx.font = "12px Arial";
+                        ctx.fillText("z", 55, -75);
+                    }
+                } else {
+                    // Open eyes (awake!)
+                    ctx.fillStyle = "white";
+                    ctx.beginPath();
+                    ctx.arc(-10, -10, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = "red";
+                    ctx.beginPath();
+                    ctx.arc(-10, -10, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                ctx.restore();
+            }
+
+            getHornPosition() {
+                // Return the exact position of the horn tip target
+                const hornX = -20;
+                const hornY = 0;
+                const hornTipX = hornX - 45;
+                const hornTipY = hornY - 79;
+                
+                return {
+                    x: this.x + this.headOffsetX - 50 + hornTipX,
+                    y: this.y + this.headOffsetY - 40 + hornTipY
+                };
+            }
+
+            getHeadBounds() {
+                const headX = this.x + this.headOffsetX - 50;
+                const headY = this.y + this.headOffsetY - 40;
+                return {
+                    x: headX,
+                    y: headY,
+                    radius: 50
+                };
+            }
+
+            getBodyBounds() {
+                return {
+                    x: this.x,
+                    y: this.y,
+                    width: 120,
+                    height: 80
+                };
+            }
+
+            wakeUp() {
+                this.sleeping = false;
+            }
+        }
+
+        class Fly {
+            constructor(rhinoX, rhinoY) {
+                this.angle = Math.random() * Math.PI * 2;
+                this.distance = 40 + Math.random() * 60;
+                this.speed = 0.05 + Math.random() * 0.1;
+                this.rhinoX = rhinoX;
+                this.rhinoY = rhinoY;
+                this.bobPhase = Math.random() * Math.PI * 2;
+                this.size = 3 + Math.random() * 2;
+            }
+
+            update(rhinoHeadX, rhinoHeadY) {
+                // Orbit around rhino's head
+                this.angle += this.speed;
+                this.bobPhase += 0.15;
+                
+                const bob = Math.sin(this.bobPhase) * 10;
+                this.x = rhinoHeadX + Math.cos(this.angle) * this.distance;
+                this.y = rhinoHeadY + Math.sin(this.angle) * this.distance + bob;
+            }
+
+            draw() {
+                // Draw fly body
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw wings (buzzing effect)
+                const wingOffset = Math.sin(Date.now() / 50) * 2;
+                ctx.strokeStyle = "rgba(200, 200, 200, 0.6)";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.ellipse(this.x - this.size, this.y + wingOffset, this.size * 1.5, this.size * 0.8, -0.3, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.ellipse(this.x + this.size, this.y - wingOffset, this.size * 1.5, this.size * 0.8, 0.3, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        class Ring {
+            constructor(startX, startY, targetX, targetY, windX, windY) {
+                this.x = startX;
+                this.y = startY;
+                this.startX = startX;
+                this.startY = startY;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.progress = 0;
+                this.speed = 0.03;
+                this.radius = 20;
+                this.rotation = 0;
+                this.active = true;
+                this.landed = false;
+                this.onHorn = false;
+                this.hitHead = false;
+                this.hitBody = false;
+                this.windX = windX || 0;
+                this.windY = windY || 0;
+                this.windOffsetX = 0;
+                this.windOffsetY = 0;
+                
+                // Calculate arc path
+                this.midX = (startX + targetX) / 2;
+                this.midY = Math.min(startY, targetY) - 150;
+            }
+
+            update() {
+                if (!this.active || this.landed) return;
+
+                this.progress += this.speed;
+                this.rotation += 0.2;
+
+                // Quadratic bezier curve for arc
+                const t = this.progress;
+                const t1 = 1 - t;
+                const baseX = t1 * t1 * this.startX + 2 * t1 * t * this.midX + t * t * this.targetX;
+                const baseY = t1 * t1 * this.startY + 2 * t1 * t * this.midY + t * t * this.targetY;
+
+                // Apply wind effect (gets MUCH stronger as ring is in the air)
+                // The longer the ring is in the air, the more wind affects it
+                const windMultiplier = t * t * 3; // Quadratic increase - wind pushes HARD!
+                this.windOffsetX += this.windX * windMultiplier;
+                this.windOffsetY += this.windY * windMultiplier;
+
+                this.x = baseX + this.windOffsetX;
+                this.y = baseY + this.windOffsetY;
+
+                if (this.progress >= 1) {
+                    this.landed = true;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Outer ring
+                ctx.strokeStyle = this.onHorn ? "#FFD700" : "#FF69B4";
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner ring (3D effect)
+                ctx.strokeStyle = this.onHorn ? "#FFA500" : "#FF1493";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius - 5, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            checkCollision(rhino) {
+                if (this.landed || !this.active) return null;
+
+                if (this.progress > 0.7) {
+                    // Check horn collision (the goal!) - More generous hit detection
+                    const hornPos = rhino.getHornPosition();
+                    const dx = this.x - hornPos.x;
+                    const dy = this.y - hornPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 25) { // Increased from 12 to 25 for easier hits
+                        this.onHorn = true;
+                        this.landed = true;
+                        return 'horn';
+                    }
+
+                    // Check head collision
+                    const headBounds = rhino.getHeadBounds();
+                    const headDx = this.x - headBounds.x;
+                    const headDy = this.y - headBounds.y;
+                    const headDistance = Math.sqrt(headDx * headDx + headDy * headDy);
+                    
+                    if (headDistance < headBounds.radius + this.radius) {
+                        this.hitHead = true;
+                        this.landed = true;
+                        return 'head';
+                    }
+
+                    // Check body collision
+                    const bodyBounds = rhino.getBodyBounds();
+                    if (this.x > bodyBounds.x - bodyBounds.width &&
+                        this.x < bodyBounds.x + bodyBounds.width &&
+                        this.y > bodyBounds.y - bodyBounds.height &&
+                        this.y < bodyBounds.y + bodyBounds.height) {
+                        this.hitBody = true;
+                        this.landed = true;
+                        return 'body';
+                    }
+                }
+
+                return null;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.rhino = new Rhino();
+                this.rings = [];
+                this.landedRings = [];
+                this.gameState = "START"; // START, PLAYING, LOST, WON
+                this.time = 0;
+                this.ringsOnHorn = 0;
+                this.headHits = 0;
+                this.particles = [];
+                this.flies = [];
+                this.windX = 0;
+                this.windY = 0;
+                this.windChangeTimer = 0;
+            }
+
+            start() {
+                this.rhino = new Rhino();
+                this.rings = [];
+                this.landedRings = [];
+                this.time = 0;
+                this.ringsOnHorn = 0;
+                this.headHits = 0;
+                this.gameState = "PLAYING";
+                this.particles = [];
+                this.windX = 0;
+                this.windY = 0;
+                this.windChangeTimer = 60;
+                
+                // Reset display counters immediately
+                ringsOnDisplay.textContent = `🎯 Rings: 0/10`;
+                timerDisplay.textContent = `⏱️ Time: 0s`;
+                headHitsDisplay.textContent = `💥 Head hits: 0/${MAX_HEAD_HITS}`;
+                
+                // Spawn flies around rhino's head - LOTS of them!
+                this.flies = [];
+                for (let i = 0; i < 25; i++) {
+                    this.flies.push(new Fly(this.rhino.x, this.rhino.y));
+                }
+            }
+
+            throwRing(targetX, targetY) {
+                if (this.gameState !== "PLAYING") return;
+
+                const ring = new Ring(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 50, targetX, targetY, this.windX, this.windY);
+                this.rings.push(ring);
+            }
+
+            update() {
+                if (this.gameState !== "PLAYING") return;
+
+                this.time += 1/60;
+                timerDisplay.textContent = `⏱️ Time: ${Math.floor(this.time)}s`;
+
+                // Update wind (changes randomly) - MUCH STRONGER!
+                this.windChangeTimer--;
+                if (this.windChangeTimer <= 0) {
+                    this.windX = (Math.random() - 0.5) * 20; // Random wind from -10 to 10 (STRONG!)
+                    this.windY = (Math.random() - 0.5) * 10; // Vertical wind -5 to 5
+                    this.windChangeTimer = 90 + Math.random() * 120; // Change every 1.5-3.5 seconds
+                }
+
+                // Update rhino
+                this.rhino.update();
+                
+                // Update flies
+                const rhinoHeadX = this.rhino.x + this.rhino.headOffsetX - 50;
+                const rhinoHeadY = this.rhino.y + this.rhino.headOffsetY - 40;
+                for (const fly of this.flies) {
+                    fly.update(rhinoHeadX, rhinoHeadY);
+                }
+
+                // Random wake up after danger time
+                if (this.time > DANGER_TIME && this.rhino.sleeping) {
+                    const dangerLevel = (this.time - DANGER_TIME) / 10;
+                    const wakeChance = Math.min(0.002 * dangerLevel, 0.01);
+                    
+                    if (Math.random() < wakeChance) {
+                        this.rhino.wakeUp();
+                        this.gameState = "LOST";
+                        return;
+                    }
+                }
+
+                // Update rings
+                for (let i = this.rings.length - 1; i >= 0; i--) {
+                    const ring = this.rings[i];
+                    ring.update();
+
+                    const collision = ring.checkCollision(this.rhino);
+                    
+                    if (collision === 'horn') {
+                        this.ringsOnHorn++;
+                        
+                        // Position ring on horn tip
+                        const hornPos = this.rhino.getHornPosition();
+                        ring.x = hornPos.x;
+                        ring.y = hornPos.y - (this.ringsOnHorn - 1) * 5; // Stack rings
+                        ring.landed = true;
+                        ring.rotation = 0;
+                        
+                        this.landedRings.push(ring);
+                        this.rings.splice(i, 1);
+                        this.createParticles(ring.x, ring.y, "#FFD700");
+                        ringsOnDisplay.textContent = `🎯 Rings: ${this.ringsOnHorn}/10`;
+
+                        if (this.ringsOnHorn >= 10) {
+                            this.gameState = "WON";
+                        }
+                    } else if (collision === 'head') {
+                        this.headHits++;
+                        this.createParticles(ring.x, ring.y, "#FF6B6B");
+                        headHitsDisplay.textContent = `💥 Head hits: ${this.headHits}/${MAX_HEAD_HITS}`;
+                        
+                        if (this.headHits >= MAX_HEAD_HITS) {
+                            this.rhino.wakeUp();
+                            this.gameState = "LOST";
+                        }
+                        
+                        this.rings.splice(i, 1);
+                    } else if (collision === 'body') {
+                        this.createParticles(ring.x, ring.y, "#888");
+                        this.rings.splice(i, 1);
+                    } else if (ring.landed) {
+                        this.rings.splice(i, 1);
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update();
+                    if (this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+
+            createParticles(x, y, color) {
+                for (let i = 0; i < 15; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 3;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 2,
+                        life: 40,
+                        maxLife: 40,
+                        color: color,
+                        size: 3 + Math.random() * 4,
+                        update() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.vy += 0.2;
+                            this.life--;
+                        }
+                    });
+                }
+            }
+
+            draw() {
+                // Clear canvas with sky
+                const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                gradient.addColorStop(0, "#87CEEB");
+                gradient.addColorStop(1, "#E0F6FF");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw ground
+                ctx.fillStyle = "#8B7355";
+                ctx.fillRect(0, CANVAS_HEIGHT - 120, CANVAS_WIDTH, 120);
+
+                // Draw grass
+                ctx.fillStyle = "#6B8E23";
+                for (let i = 0; i < 50; i++) {
+                    const x = (i * 73) % CANVAS_WIDTH;
+                    const y = CANVAS_HEIGHT - 120 + (i * 37) % 20;
+                    ctx.fillRect(x, y, 3, 10);
+                }
+
+                // Draw rhino
+                this.rhino.draw();
+
+                // Draw flies buzzing around rhino's head
+                for (const fly of this.flies) {
+                    fly.draw();
+                }
+
+                // Draw wind indicator - Just animated lines
+                if (this.gameState === "PLAYING") {
+                    ctx.save();
+                    ctx.globalAlpha = 0.5;
+                    
+                    // Draw animated wind lines across the screen
+                    for (let i = 0; i < 12; i++) {
+                        const y = 30 + i * 50;
+                        const offset = (Date.now() / 30 + i * 20) % 100;
+                        const x = offset;
+                        
+                        ctx.strokeStyle = "#FFFFFF";
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + this.windX * 8, y + this.windY * 8);
+                        ctx.stroke();
+                    }
+                    
+                    ctx.restore();
+                }
+
+                // Draw landed rings on horn (update their position to follow rhino)
+                const hornPos = this.rhino.getHornPosition();
+                for (let i = 0; i < this.landedRings.length; i++) {
+                    const ring = this.landedRings[i];
+                    ring.x = hornPos.x;
+                    ring.y = hornPos.y - i * 5; // Stack them
+                    ring.draw();
+                }
+
+                // Draw active rings
+                for (const ring of this.rings) {
+                    ring.draw();
+                }
+
+                // Draw particles
+                for (const particle of this.particles) {
+                    const alpha = particle.life / particle.maxLife;
+                    ctx.fillStyle = particle.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+                    if (!particle.color.includes('rgb')) {
+                        ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+                    }
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw trajectory preview and crosshair
+                if (this.gameState === "PLAYING" && this.mouseX && this.mouseY) {
+                    // Draw trajectory arc preview WITH WIND effect
+                    const startX = CANVAS_WIDTH / 2;
+                    const startY = CANVAS_HEIGHT - 50;
+                    const midX = (startX + this.mouseX) / 2;
+                    const midY = Math.min(startY, this.mouseY) - 150;
+                    
+                    ctx.strokeStyle = "rgba(255, 215, 0, 0.3)";
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([10, 10]);
+                    ctx.beginPath();
+                    
+                    // Draw curve with wind simulation - SHOWS STRONG WIND EFFECT
+                    let windOffsetX = 0;
+                    let windOffsetY = 0;
+                    ctx.moveTo(startX, startY);
+                    for (let t = 0; t <= 1; t += 0.05) {
+                        const t1 = 1 - t;
+                        const baseX = t1 * t1 * startX + 2 * t1 * t * midX + t * t * this.mouseX;
+                        const baseY = t1 * t1 * startY + 2 * t1 * t * midY + t * t * this.mouseY;
+                        
+                        // Same wind calculation as actual ring
+                        const windMultiplier = t * t * 3;
+                        windOffsetX += this.windX * windMultiplier;
+                        windOffsetY += this.windY * windMultiplier;
+                        
+                        ctx.lineTo(baseX + windOffsetX, baseY + windOffsetY);
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    // Draw crosshair at mouse position
+                    ctx.strokeStyle = "rgba(255, 215, 0, 0.8)";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.mouseX - 15, this.mouseY);
+                    ctx.lineTo(this.mouseX + 15, this.mouseY);
+                    ctx.moveTo(this.mouseX, this.mouseY - 15);
+                    ctx.lineTo(this.mouseX, this.mouseY + 15);
+                    ctx.stroke();
+                    
+                    // Draw circle around crosshair
+                    ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.mouseX, this.mouseY, 25, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🦏 Ring the Rhino 🎯", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100, "48px Arial", "#8B4513");
+                    this.drawText("Click to aim and throw rings", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, "28px Arial", "white");
+                    this.drawText("Get 10 rings on the horn!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "#FFD700");
+                    this.drawText("Don't hit his head too much!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35, "20px Arial", "#FF6B6B");
+                    this.drawText("Click anywhere to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "18px Arial", "#888");
+                } else if (this.gameState === "LOST") {
+                    this.drawText("🦏 RHINO WOKE UP! 🦏", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
+                    this.drawText("You disturbed his sleep!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText(`Rings on horn: ${this.ringsOnHorn}/10`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "24px Arial", "#FFD700");
+                    this.drawText("Click or press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 75, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 PERFECT! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "52px Arial", "#FFD700");
+                    this.drawText("All rings on the horn!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "32px Arial", "white");
+                    this.drawText("The rhino is still sleeping 😴", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45, "24px Arial", "#4CAF50");
+                    this.drawText("Click or press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#888");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 3, y + 3);
+
+                // Text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            game.mouseX = event.clientX - rect.left;
+            game.mouseY = event.clientY - rect.top;
+        }
+
+        function onClick(event) {
+            // Don't prevent default if clicking on a link
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START" || game.gameState === "LOST" || game.gameState === "WON") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                game.throwRing(x, y);
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "LOST" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("mousemove", onMouseMove);
+        canvas.addEventListener("click", onClick);
+        document.addEventListener("keydown", onKeyDown);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
