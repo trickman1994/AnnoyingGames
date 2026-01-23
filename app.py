@@ -78,6 +78,12 @@ async def stop_the_dot(request):
     return FileResponse(file_path)
 
 
+async def match_throw(request):
+    """Serve Match Throw game"""
+    file_path = os.path.join(BASE_DIR, "games", "basketball-chaos", "index.html")
+    return FileResponse(file_path)
+
+
 # Define routes
 routes = [
     Route("/", homepage),
@@ -101,6 +107,8 @@ routes = [
     Route("/games/chaos-bird/", chaos_bird),
     Route("/games/stop-the-dot", stop_the_dot),
     Route("/games/stop-the-dot/", stop_the_dot),
+    Route("/games/match-throw", match_throw),
+    Route("/games/match-throw/", match_throw),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 

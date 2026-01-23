@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Basketball Chaos - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%, #228B22 100%);
+            cursor: default;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">🔥 Match Throw</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="stats">
+            <div id="score">🎈 Balloons: 0 / 10</div>
+            <div id="time">⏱️ Time: 60s</div>
+            <div id="match-status">🔥 Match: LIT</div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🔥 Match Throw - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Smash <strong>10 balloons</strong> in <strong>60 seconds</strong> to win!</p>
+                <p>Throw flaming matches using the same amazing physics as Chaos Bird!</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap anywhere</strong> on the screen → match flies toward that position!</p>
+                <p>• <strong>Click lights the match</strong> - it becomes a flaming projectile!</p>
+                <p>• <strong>Distance = Force:</strong> Far click = big movement • Close click = small adjustment</p>
+                <p>• <strong>Press R</strong> to restart after game over</p>
+                
+                <h3>⚠️ The Chaos</h3>
+                <p>• Balloons <strong>move around</strong> randomly - they won't stay still!</p>
+                <p>• Balloons get <strong>smaller</strong> as you smash more</p>
+                <p>• <strong>Wind</strong> affects the match's trajectory</p>
+                <p>• <strong>Water bubbles</strong> bounce around - if match hits them, it gets WET (extinguished)!</p>
+                <p>• Match has <strong>gravity and momentum</strong> - just like Chaos Bird!</p>
+                
+                <h3>Scoring</h3>
+                <p>• Flaming match must <strong>hit the balloon</strong> to pop it</p>
+                <p>• Each popped balloon = +1 point</p>
+                <p>• When a balloon pops, a new one spawns</p>
+                <p>• Need 10 popped balloons to win</p>
+                <p>• Time limit: 60 seconds</p>
+                
+                <h3>⚠️ Match Extinguishing</h3>
+                <p>• If match hits a <strong>water bubble</strong>, it gets WET and extinguished</p>
+                <p>• Wet match cannot pop balloons - you need to click again to light a new match!</p>
+                <p>• Water bubble respawns after being hit</p>
+                
+                <h3>Tips</h3>
+                <p>• Click above the match for extra upward boost</p>
+                <p>• Use short clicks for precise adjustments</p>
+                <p>• Watch the moving balloons - predict their movement!</p>
+                <p>• Avoid water bubbles - they'll extinguish your match!</p>
+                <p>• The match floats naturally - use it to your advantage</p>
+                <p>• Don't panic - stay calm and aim carefully!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreDisplay = document.getElementById("score");
+        const timeDisplay = document.getElementById("time");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 600;
+        const BASE_HEIGHT = 800;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            // Get actual header height from DOM
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
+            
+            // Calculate available space - use ALL available height
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            // Fill available space - prioritize height
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            // If width exceeds available space, scale down
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            // Ensure we don't exceed base dimensions
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        // Resize immediately on load and after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        // Also resize after a short delay to ensure header is rendered
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Game constants - using same physics as Chaos Bird
+        const GRAVITY = 0.15;
+        const MATCH_SIZE = 15;
+        const SCORE_TO_WIN = 10;
+        const TIME_LIMIT = 60;
+
+        class Match {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT - 100;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = MATCH_SIZE;
+                this.rotation = 0;
+                this.rotationSpeed = 0;
+                this.isLit = false; // Match starts unlit
+                this.flameTimer = 0;
+            }
+
+            moveToward(clickX, clickY) {
+                // Same physics as Chaos Bird!
+                // Clicking lights the match!
+                this.isLit = true;
+                this.flameTimer = 0;
+                
+                const dx = clickX - this.x;
+                const dy = clickY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 10) {
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    
+                    // Apply force based on distance
+                    let force = Math.min(distance / 40, 12);
+                    
+                    // Extra boost for upward clicks
+                    if (dy < 0) {
+                        force *= 1.5;
+                    }
+                    
+                    this.vx += dirX * force;
+                    this.vy += dirY * force;
+                    
+                    // Cap max velocity
+                    const maxSpeed = 20;
+                    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    if (currentSpeed > maxSpeed) {
+                        this.vx = (this.vx / currentSpeed) * maxSpeed;
+                        this.vy = (this.vy / currentSpeed) * maxSpeed;
+                    }
+                    
+                    // Add rotation based on movement
+                    this.rotationSpeed += (dirX * force) * 0.1;
+                }
+            }
+            
+            extinguish() {
+                this.isLit = false;
+                this.flameTimer = 0;
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                
+                // Update flame timer
+                if (this.isLit) {
+                    this.flameTimer += deltaTime;
+                }
+                
+                // Apply gravity (same as Chaos Bird)
+                this.vy += GRAVITY * dt;
+                
+                // Natural buoyancy - floating effect
+                if (this.vy > 0) {
+                    this.vy *= 0.97;
+                }
+                
+                // Apply friction (air resistance)
+                this.vx *= 0.98;
+                this.vy *= 0.995;
+                
+                // Apply velocity
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                // Update rotation
+                this.rotation += this.rotationSpeed;
+                this.rotationSpeed *= 0.95; // Rotation friction
+                
+                // Bounce off walls
+                if (this.x < this.size) {
+                    this.x = this.size;
+                    this.vx *= -0.7; // Bounce with energy loss
+                    this.rotationSpeed += Math.abs(this.vx) * 0.1;
+                }
+                if (this.x > CANVAS_WIDTH - this.size) {
+                    this.x = CANVAS_WIDTH - this.size;
+                    this.vx *= -0.7;
+                    this.rotationSpeed -= Math.abs(this.vx) * 0.1;
+                }
+                if (this.y < this.size) {
+                    this.y = this.size;
+                    this.vy *= -0.7;
+                }
+                if (this.y > CANVAS_HEIGHT - this.size) {
+                    this.y = CANVAS_HEIGHT - this.size;
+                    this.vy *= -0.7;
+                    this.vx *= 0.9; // Ground friction
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                // Match shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.beginPath();
+                ctx.ellipse(2, 2, this.size * 0.3, this.size * 0.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Match stick (brown)
+                ctx.fillStyle = "#8B4513";
+                ctx.fillRect(-this.size * 0.3, -this.size, this.size * 0.6, this.size * 2);
+                
+                // Match head (red tip)
+                ctx.fillStyle = "#FF4500";
+                ctx.beginPath();
+                ctx.arc(0, -this.size, this.size * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Flame (if lit)
+                if (this.isLit) {
+                    const flameSize = 8 + Math.sin(this.flameTimer * 10) * 2;
+                    const gradient = ctx.createRadialGradient(0, -this.size - flameSize, 0, 0, -this.size, flameSize);
+                    gradient.addColorStop(0, "#FFD700");
+                    gradient.addColorStop(0.5, "#FF6B35");
+                    gradient.addColorStop(1, "rgba(255, 107, 53, 0)");
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(0, -this.size - flameSize * 0.5, flameSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Flame particles
+                    for (let i = 0; i < 3; i++) {
+                        const angle = (this.flameTimer * 5 + i * 2) % (Math.PI * 2);
+                        const dist = flameSize * 0.7;
+                        ctx.fillStyle = `rgba(255, ${200 - i * 50}, 0, 0.8)`;
+                        ctx.beginPath();
+                        ctx.arc(Math.cos(angle) * dist, -this.size - flameSize + Math.sin(angle) * dist, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else {
+                    // Wet match indicator
+                    ctx.fillStyle = "rgba(100, 150, 255, 0.5)";
+                    ctx.beginPath();
+                    ctx.arc(0, -this.size, this.size * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        class Balloon {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 40;
+                this.vx = (Math.random() - 0.5) * 30; // Random horizontal movement
+                this.vy = (Math.random() - 0.5) * 20; // Random vertical movement
+                this.stringLength = 30;
+                this.stringAngle = Math.random() * Math.PI * 2;
+                this.bobTimer = 0;
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                this.bobTimer += deltaTime;
+                
+                // Move randomly
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                // Bobbing motion
+                this.stringAngle += Math.sin(this.bobTimer * 2) * 0.05;
+                
+                // Bounce off walls
+                if (this.x < this.radius || this.x > CANVAS_WIDTH - this.radius) {
+                    this.vx *= -1;
+                    this.x = Math.max(this.radius, Math.min(CANVAS_WIDTH - this.radius, this.x));
+                }
+                if (this.y < this.radius + 50 || this.y > CANVAS_HEIGHT - 200) {
+                    this.vy *= -1;
+                    this.y = Math.max(this.radius + 50, Math.min(CANVAS_HEIGHT - 200, this.y));
+                }
+                
+                // Random direction changes
+                if (Math.random() < 0.01) {
+                    this.vx = (Math.random() - 0.5) * 30;
+                }
+                if (Math.random() < 0.01) {
+                    this.vy = (Math.random() - 0.5) * 20;
+                }
+            }
+
+            draw() {
+                // String
+                const stringEndX = this.x + Math.cos(this.stringAngle) * this.stringLength;
+                const stringEndY = this.y + this.radius + Math.sin(this.stringAngle) * this.stringLength;
+                ctx.strokeStyle = "#666";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.radius);
+                ctx.lineTo(stringEndX, stringEndY);
+                ctx.stroke();
+                
+                // Balloon body (random color)
+                const colors = ["#FF6B9D", "#C44569", "#FF8C42", "#FF6B35", "#4ECDC4", "#95E1D3"];
+                const color = colors[Math.floor(this.x / 50) % colors.length];
+                const gradient = ctx.createRadialGradient(this.x - 5, this.y - 5, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, "#FFF");
+                gradient.addColorStop(1, color);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Balloon highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Balloon outline
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            checkHit(match) {
+                // Check if flaming match hits the balloon
+                if (!match.isLit) return false;
+                
+                const dx = match.x - this.x;
+                const dy = match.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                return distance < this.radius + match.size;
+            }
+        }
+
+        class WaterBubble {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 30 + Math.random() * 20;
+                this.vx = (Math.random() - 0.5) * 40;
+                this.vy = (Math.random() - 0.5) * 40;
+                this.bobTimer = Math.random() * Math.PI * 2;
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                this.bobTimer += deltaTime;
+                
+                // Floating/bobbing motion
+                this.x += this.vx * dt;
+                this.y += this.vy * dt + Math.sin(this.bobTimer * 3) * 0.5;
+                
+                // Bounce off walls
+                if (this.x < this.size || this.x > CANVAS_WIDTH - this.size) {
+                    this.vx *= -1;
+                }
+                if (this.y < this.size || this.y > CANVAS_HEIGHT - this.size) {
+                    this.vy *= -1;
+                }
+            }
+
+            draw() {
+                // Water bubble (translucent blue)
+                const gradient = ctx.createRadialGradient(
+                    this.x - this.size * 0.3, 
+                    this.y - this.size * 0.3, 
+                    0,
+                    this.x, 
+                    this.y, 
+                    this.size
+                );
+                gradient.addColorStop(0, "rgba(173, 216, 230, 0.8)");
+                gradient.addColorStop(1, "rgba(100, 150, 255, 0.4)");
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bubble highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.beginPath();
+                ctx.arc(this.x - this.size * 0.3, this.y - this.size * 0.3, this.size * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bubble outline
+                ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            checkCollision(match) {
+                const dx = match.x - this.x;
+                const dy = match.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.size + match.size;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = "START"; // START, PLAYING, WON, LOST
+                this.score = 0;
+                this.timeLeft = TIME_LIMIT;
+                this.match = new Match();
+                this.balloon = new Balloon(CANVAS_WIDTH / 2, 150);
+                this.waterBubbles = [];
+                this.particles = [];
+                this.windX = 0;
+                this.windY = 0;
+                this.windTimer = 0;
+                this.lastScoreTime = 0;
+                
+                // Add water bubbles
+                for (let i = 0; i < 3; i++) {
+                    this.waterBubbles.push(new WaterBubble(
+                        100 + Math.random() * (CANVAS_WIDTH - 200),
+                        200 + Math.random() * (CANVAS_HEIGHT - 400)
+                    ));
+                }
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+                this.score = 0;
+                this.timeLeft = TIME_LIMIT;
+                this.match = new Match();
+                this.balloon = new Balloon(CANVAS_WIDTH / 2, 150);
+                this.waterBubbles = [];
+                this.particles = [];
+                this.windX = 0;
+                this.windY = 0;
+                this.windTimer = 0;
+                this.lastScoreTime = 0;
+                
+                // Add water bubbles
+                for (let i = 0; i < 3; i++) {
+                    this.waterBubbles.push(new WaterBubble(
+                        100 + Math.random() * (CANVAS_WIDTH - 200),
+                        200 + Math.random() * (CANVAS_HEIGHT - 400)
+                    ));
+                }
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update wind
+                this.windTimer += deltaTime;
+                if (this.windTimer > 2) {
+                    this.windTimer = 0;
+                    this.windX = (Math.random() - 0.5) * 0.3;
+                    this.windY = (Math.random() - 0.5) * 0.2;
+                }
+                
+                // Apply wind to match
+                this.match.vx += this.windX;
+                this.match.vy += this.windY;
+
+                // Update match
+                this.match.update(deltaTime);
+
+                // Update balloon (make it smaller as score increases)
+                const sizeReduction = Math.min(this.score * 3, 20);
+                this.balloon.radius = 40 - sizeReduction;
+                this.balloon.update(deltaTime);
+
+                // Update water bubbles
+                for (let i = this.waterBubbles.length - 1; i >= 0; i--) {
+                    const bubble = this.waterBubbles[i];
+                    bubble.update(deltaTime);
+                    
+                    // Check collision with match
+                    if (bubble.checkCollision(this.match)) {
+                        // Match hits water bubble - extinguish it!
+                        this.match.extinguish();
+                        
+                        // Create splash particles
+                        for (let j = 0; j < 15; j++) {
+                            this.particles.push({
+                                x: bubble.x,
+                                y: bubble.y,
+                                vx: (Math.random() - 0.5) * 8,
+                                vy: (Math.random() - 0.5) * 8,
+                                life: 1,
+                                color: '#6495ED'
+                            });
+                        }
+                        
+                        // Respawn bubble in new location
+                        this.waterBubbles[i] = new WaterBubble(
+                            100 + Math.random() * (CANVAS_WIDTH - 200),
+                            200 + Math.random() * (CANVAS_HEIGHT - 400)
+                        );
+                    }
+                }
+
+                // Check for balloon pop (match must be lit!)
+                if (this.balloon.checkHit(this.match) && Date.now() - this.lastScoreTime > 500) {
+                    this.score++;
+                    this.lastScoreTime = Date.now();
+                    
+                    // Create pop particles
+                    for (let i = 0; i < 30; i++) {
+                        this.particles.push({
+                            x: this.balloon.x,
+                            y: this.balloon.y,
+                            vx: (Math.random() - 0.5) * 12,
+                            vy: (Math.random() - 0.5) * 12,
+                            life: 1,
+                            color: ['#FF6B9D', '#C44569', '#FF8C42', '#4ECDC4'][Math.floor(Math.random() * 4)]
+                        });
+                    }
+                    
+                    // Spawn new balloon in random position
+                    this.balloon = new Balloon(
+                        100 + Math.random() * (CANVAS_WIDTH - 200),
+                        100 + Math.random() * (CANVAS_HEIGHT - 300)
+                    );
+                    
+                    // Add more water bubbles as score increases
+                    if (this.score % 3 === 0 && this.waterBubbles.length < 6) {
+                        this.waterBubbles.push(new WaterBubble(
+                            100 + Math.random() * (CANVAS_WIDTH - 200),
+                            200 + Math.random() * (CANVAS_HEIGHT - 400)
+                        ));
+                    }
+                    
+                    if (this.score >= SCORE_TO_WIN) {
+                        this.gameState = "WON";
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3; // Gravity
+                    p.life -= deltaTime * 2;
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update timer
+                this.timeLeft -= deltaTime;
+                if (this.timeLeft <= 0) {
+                    this.gameState = "LOST";
+                }
+
+                // Update UI
+                scoreDisplay.textContent = `🎈 Balloons: ${this.score} / ${SCORE_TO_WIN}`;
+                timeDisplay.textContent = `⏱️ Time: ${Math.max(0, Math.ceil(this.timeLeft))}s`;
+                const matchStatusDisplay = document.getElementById("match-status");
+                if (matchStatusDisplay) {
+                    matchStatusDisplay.textContent = this.match.isLit ? "🔥 Match: LIT" : "💧 Match: WET";
+                    matchStatusDisplay.style.color = this.match.isLit ? "#FF6B35" : "#6495ED";
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                ctx.fillStyle = "#87CEEB";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                // Draw court lines
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(0, CANVAS_HEIGHT - 50);
+                ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 50);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw wind indicator
+                if (Math.abs(this.windX) > 0.05 || Math.abs(this.windY) > 0.05) {
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+                    ctx.lineWidth = 2;
+                    for (let i = 0; i < 5; i++) {
+                        const x = 50 + i * 30;
+                        const y = 50;
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + this.windX * 20, y + this.windY * 20);
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw water bubbles
+                for (const bubble of this.waterBubbles) {
+                    bubble.draw();
+                }
+
+                // Draw balloon
+                this.balloon.draw();
+
+                // Draw match
+                this.match.draw();
+
+                // Draw particles
+                for (const p of this.particles) {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🔥 MATCH THROW", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80, "36px Arial", "white");
+                    this.drawText("Click/Tap to light and throw the match", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, "20px Arial", "#FFD700");
+                    this.drawText("Pop 10 balloons in 60 seconds!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20, "18px Arial", "white");
+                    this.drawText("Avoid water bubbles - they extinguish!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50, "16px Arial", "#6495ED");
+                    this.drawText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90, "24px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 YOU WON! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText(`Popped ${this.score} balloons!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText(`Time left: ${Math.ceil(this.timeLeft)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50, "24px Arial", "#4CAF50");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, "18px Arial", "#888");
+                } else if (this.gameState === "LOST") {
+                    this.drawText("⏰ TIME'S UP!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FF4444");
+                    this.drawText(`You popped ${this.score} / ${SCORE_TO_WIN} balloons`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "28px Arial", "white");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60, "18px Arial", "#4CAF50");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / scale;
+            const y = (event.clientY - rect.top) / scale;
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.match.moveToward(x, y); // Click lights and throws the match
+            } else if (game.gameState === "WON" || game.gameState === "LOST") {
+                // Do nothing - need to press R
+            }
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = event.changedTouches[0];
+            const x = (touch.clientX - rect.left) / scale;
+            const y = (touch.clientY - rect.top) / scale;
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.match.moveToward(x, y); // Tap lights and throws the match
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "WON" || game.gameState === "LOST") {
+                    game.start();
+                }
+            }
+        }
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
