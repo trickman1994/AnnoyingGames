@@ -1,0 +1,320 @@
+<!-- 
+    COMMON GAME TEMPLATE
+    Use this template when creating new games or refactoring existing ones.
+    
+    Key Features:
+    - Header bar with Home, Title, Info icon
+    - Info modal with detailed game explanation
+    - Full screen canvas (fills all space except header)
+    - Vertical orientation
+    - Responsive design
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GAME_NAME - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #COLOR1 0%, #COLOR2 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #BACKGROUND_COLOR;
+            cursor: default;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">🎮 GAME_NAME</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="BASE_WIDTH" height="BASE_HEIGHT"></canvas>
+        <!-- Game-specific overlays/stats go here -->
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🎮 GAME_NAME - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>GAME_OBJECTIVE</p>
+                
+                <h3>Controls</h3>
+                <p>CONTROLS_DESCRIPTION</p>
+                
+                <h3>Rules</h3>
+                <p>RULES_DESCRIPTION</p>
+                
+                <h3>Tips</h3>
+                <p>TIPS_DESCRIPTION</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 800; // CHANGE THIS
+        const BASE_HEIGHT = 600; // CHANGE THIS
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            // Get actual header height from DOM
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70; // Include margin
+            const padding = 5;
+            
+            // Calculate available space - use ALL available height
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            // Fill available space - prioritize height
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            // If width exceeds available space, scale down
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            // Ensure we don't exceed base dimensions
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        // Resize immediately on load and after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        // Also resize after a short delay to ensure header is rendered
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // ====================================
+        // GAME-SPECIFIC CODE GOES HERE
+        // ====================================
+        
+        // Initialize game
+        const game = new Game();
+        
+        // Game loop
+        function gameLoop() {
+            game.update();
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

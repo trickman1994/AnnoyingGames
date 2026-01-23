@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stop The Dot - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #1a1a2e;
+            cursor: pointer;
+            touch-action: manipulation;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            text-align: center;
+        }
+
+        .score-big {
+            font-size: 32px;
+            color: #FFD700;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .attempts {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #FF4444;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            .score-big {
+                font-size: 24px;
+            }
+
+            .attempts {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">⭕ Stop The Dot</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div id="stats">
+            <div class="score-big" id="score">0 / 20</div>
+            <div class="attempts" id="attempts">Attempts: 0</div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>⭕ Stop The Dot - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Click when the dot is in the <strong>GREEN zone</strong>! Get <strong>20 perfect stops</strong> to win!</p>
+                
+                <h3>⚠️ The Challenge</h3>
+                <p>• Each round: Zone gets <strong>SMALLER</strong> • Dot gets <strong>FASTER</strong></p>
+                <p>• Random <strong>speed changes</strong> mid-spin</p>
+                <p>• Random <strong>direction reversals</strong></p>
+                <p>• <strong>Decoy dots</strong> appear (Round 5+) - click them = FAIL!</p>
+                <p class="warning">💀 ONE MISS = START OVER FROM 0!</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap</strong> when the golden dot enters the green zone</p>
+                <p>• <strong>Press R</strong> to restart after game over</p>
+                
+                <h3>Tips</h3>
+                <p>• Watch the dot's speed - it changes randomly!</p>
+                <p>• Don't click red decoy dots (Round 5+)</p>
+                <p>• The green zone gets TINY at higher rounds</p>
+                <p>• Stay calm - panic clicking = failure!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreDisplay = document.getElementById("score");
+        const attemptsDisplay = document.getElementById("attempts");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 600;
+        const BASE_HEIGHT = 600;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            // Get actual header height from DOM
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
+            
+            // Calculate available space - use ALL available height
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            // Fill available space - prioritize height
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            // If width exceeds available space, scale down
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            // Ensure we don't exceed base dimensions
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        // Resize immediately on load and after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        // Also resize after a short delay to ensure header is rendered
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        const CENTER_X = BASE_WIDTH / 2;
+        const CENTER_Y = BASE_HEIGHT / 2;
+        const CIRCLE_RADIUS = 200;
+        const DOT_SIZE = 15;
+        const TARGET_ZONE_START = 150; // Starting size in degrees
+        const TARGET_ZONE_MIN = 15; // Minimum size in degrees
+
+        class Dot {
+            constructor(speed, isDecoy = false) {
+                this.angle = 0;
+                this.baseSpeed = speed;
+                this.speed = speed;
+                this.isDecoy = isDecoy;
+                this.color = isDecoy ? '#FF4444' : '#FFD700';
+                this.reverseTimer = 2 + Math.random() * 3; // Random reverse timing
+                this.speedChangeTimer = 1 + Math.random() * 2;
+            }
+
+            update(deltaTime) {
+                this.angle += this.speed * deltaTime;
+                
+                // Wrap around
+                if (this.angle >= Math.PI * 2) {
+                    this.angle -= Math.PI * 2;
+                } else if (this.angle < 0) {
+                    this.angle += Math.PI * 2;
+                }
+
+                // Random reversals
+                this.reverseTimer -= deltaTime;
+                if (this.reverseTimer <= 0) {
+                    this.speed *= -1;
+                    this.reverseTimer = 2 + Math.random() * 4;
+                }
+
+                // Random speed changes
+                this.speedChangeTimer -= deltaTime;
+                if (this.speedChangeTimer <= 0) {
+                    const direction = this.speed > 0 ? 1 : -1;
+                    this.speed = direction * this.baseSpeed * (0.5 + Math.random() * 1);
+                    this.speedChangeTimer = 1 + Math.random() * 2;
+                }
+            }
+
+            draw() {
+                const x = CENTER_X + Math.cos(this.angle) * CIRCLE_RADIUS;
+                const y = CENTER_Y + Math.sin(this.angle) * CIRCLE_RADIUS;
+
+                // Glow effect
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(x, y, DOT_SIZE, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Inner highlight
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(x - 3, y - 3, DOT_SIZE * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            getAngleDegrees() {
+                return (this.angle * 180 / Math.PI) % 360;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.score = 0;
+                this.attempts = 0;
+                this.gameState = "START"; // START, PLAYING, FAILED, WON
+                this.targetAngle = 0; // Top of circle
+                this.targetZoneSize = TARGET_ZONE_START;
+                this.dots = [];
+                this.particles = [];
+                this.flashColor = null;
+                this.flashTimer = 0;
+                this.message = "";
+                this.messageTimer = 0;
+                
+                this.setupRound();
+            }
+
+            setupRound() {
+                this.dots = [];
+                
+                // Calculate difficulty based on score
+                const baseSpeed = 1.5 + (this.score * 0.15); // Gets faster
+                this.targetZoneSize = Math.max(TARGET_ZONE_MIN, TARGET_ZONE_START - (this.score * 5)); // Gets smaller
+
+                // Add main dot
+                this.dots.push(new Dot(baseSpeed, false));
+
+                // Add decoy dots at higher levels
+                if (this.score >= 5 && Math.random() < 0.3) {
+                    this.dots.push(new Dot(baseSpeed * 1.2, true));
+                }
+                if (this.score >= 10 && Math.random() < 0.4) {
+                    this.dots.push(new Dot(baseSpeed * 0.8, true));
+                }
+                if (this.score >= 15 && Math.random() < 0.5) {
+                    this.dots.push(new Dot(baseSpeed * 1.5, true));
+                }
+
+                // Randomize target position
+                this.targetAngle = Math.random() * 360;
+            }
+
+            start() {
+                this.score = 0;
+                this.attempts++;
+                this.gameState = "PLAYING";
+                this.targetZoneSize = TARGET_ZONE_START;
+                this.setupRound();
+                this.updateUI();
+            }
+
+            onClick() {
+                if (this.gameState === "START") {
+                    this.start();
+                    return;
+                }
+
+                if (this.gameState !== "PLAYING") {
+                    this.start();
+                    return;
+                }
+
+                // Check if any golden dot is in the target zone
+                const goldDot = this.dots.find(d => !d.isDecoy);
+                if (!goldDot) return;
+
+                const dotAngle = goldDot.getAngleDegrees();
+                const targetStart = this.targetAngle - this.targetZoneSize / 2;
+                const targetEnd = this.targetAngle + this.targetZoneSize / 2;
+
+                let isInZone = false;
+                if (targetStart < 0) {
+                    isInZone = dotAngle >= (360 + targetStart) || dotAngle <= targetEnd;
+                } else if (targetEnd > 360) {
+                    isInZone = dotAngle >= targetStart || dotAngle <= (targetEnd - 360);
+                } else {
+                    isInZone = dotAngle >= targetStart && dotAngle <= targetEnd;
+                }
+
+                // Check if clicked a decoy
+                const clickedDecoy = this.dots.some(d => {
+                    if (!d.isDecoy) return false;
+                    const angle = d.getAngleDegrees();
+                    if (targetStart < 0) {
+                        return angle >= (360 + targetStart) || angle <= targetEnd;
+                    } else if (targetEnd > 360) {
+                        return angle >= targetStart || angle <= (targetEnd - 360);
+                    } else {
+                        return angle >= targetStart && angle <= targetEnd;
+                    }
+                });
+
+                if (clickedDecoy) {
+                    // Clicked decoy - FAIL
+                    this.onFail("WRONG DOT!");
+                } else if (isInZone) {
+                    // Success!
+                    this.onSuccess();
+                } else {
+                    // Missed - FAIL
+                    this.onFail("MISSED!");
+                }
+            }
+
+            onSuccess() {
+                this.score++;
+                this.flashColor = '#4CAF50';
+                this.flashTimer = 0.3;
+                this.message = "PERFECT!";
+                this.messageTimer = 0.5;
+
+                // Create particles
+                const angle = this.targetAngle * Math.PI / 180;
+                const x = CENTER_X + Math.cos(angle) * CIRCLE_RADIUS;
+                const y = CENTER_Y + Math.sin(angle) * CIRCLE_RADIUS;
+                for (let i = 0; i < 20; i++) {
+                    this.particles.push({
+                        x, y,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 5,
+                        life: 1,
+                        color: '#4CAF50'
+                    });
+                }
+
+                if (this.score >= 20) {
+                    this.gameState = "WON";
+                } else {
+                    // Next round
+                    setTimeout(() => {
+                        if (this.gameState === "PLAYING") {
+                            this.setupRound();
+                        }
+                    }, 500);
+                }
+
+                this.updateUI();
+            }
+
+            onFail(reason) {
+                this.gameState = "FAILED";
+                this.flashColor = '#FF0000';
+                this.flashTimer = 0.5;
+                this.message = reason;
+                this.messageTimer = 2;
+
+                // Create red particles
+                for (const dot of this.dots) {
+                    if (!dot.isDecoy) {
+                        const angle = dot.angle;
+                        const x = CENTER_X + Math.cos(angle) * CIRCLE_RADIUS;
+                        const y = CENTER_Y + Math.sin(angle) * CIRCLE_RADIUS;
+                        for (let i = 0; i < 30; i++) {
+                            this.particles.push({
+                                x, y,
+                                vx: (Math.random() - 0.5) * 8,
+                                vy: (Math.random() - 0.5) * 8,
+                                life: 1,
+                                color: '#FF0000'
+                            });
+                        }
+                    }
+                }
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update dots
+                for (const dot of this.dots) {
+                    dot.update(deltaTime);
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.2; // Gravity
+                    p.life -= deltaTime * 2;
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update flash
+                if (this.flashTimer > 0) {
+                    this.flashTimer -= deltaTime;
+                }
+
+                // Update message
+                if (this.messageTimer > 0) {
+                    this.messageTimer -= deltaTime;
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+                // Flash effect
+                if (this.flashTimer > 0) {
+                    ctx.fillStyle = this.flashColor;
+                    ctx.globalAlpha = this.flashTimer * 0.3;
+                    ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+                    ctx.globalAlpha = 1;
+                }
+
+                if (this.gameState === "START") {
+                    this.drawStartScreen();
+                } else {
+                    this.drawGame();
+                    if (this.gameState === "FAILED") {
+                        this.drawFailScreen();
+                    } else if (this.gameState === "WON") {
+                        this.drawWinScreen();
+                    }
+                }
+            }
+
+            drawGame() {
+                // Draw track circle
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.arc(CENTER_X, CENTER_Y, CIRCLE_RADIUS, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Draw target zone
+                const startAngle = (this.targetAngle - this.targetZoneSize / 2) * Math.PI / 180;
+                const endAngle = (this.targetAngle + this.targetZoneSize / 2) * Math.PI / 180;
+                
+                // Target zone background
+                ctx.fillStyle = 'rgba(76, 175, 80, 0.3)';
+                ctx.beginPath();
+                ctx.arc(CENTER_X, CENTER_Y, CIRCLE_RADIUS + 15, startAngle, endAngle);
+                ctx.arc(CENTER_X, CENTER_Y, CIRCLE_RADIUS - 15, endAngle, startAngle, true);
+                ctx.closePath();
+                ctx.fill();
+
+                // Target zone outline
+                ctx.strokeStyle = '#4CAF50';
+                ctx.lineWidth = 6;
+                ctx.shadowColor = '#4CAF50';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(CENTER_X, CENTER_Y, CIRCLE_RADIUS, startAngle, endAngle);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Draw particles
+                for (const p of this.particles) {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                // Draw dots
+                for (const dot of this.dots) {
+                    dot.draw();
+                }
+
+                // Draw center info
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.score, CENTER_X, CENTER_Y - 20);
+                
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = '#888';
+                ctx.fillText('/ 20', CENTER_X, CENTER_Y + 20);
+
+                // Draw message
+                if (this.messageTimer > 0) {
+                    ctx.font = 'bold 36px Arial';
+                    ctx.fillStyle = this.message === "PERFECT!" ? '#4CAF50' : '#FF4444';
+                    ctx.shadowColor = ctx.fillStyle;
+                    ctx.shadowBlur = 10;
+                    ctx.fillText(this.message, CENTER_X, CENTER_Y + 80);
+                    ctx.shadowBlur = 0;
+                }
+
+                // Draw difficulty indicator
+                const difficulty = Math.min(20, this.score);
+                ctx.fillStyle = `rgba(255, ${255 - difficulty * 12}, 0, 0.8)`;
+                ctx.fillRect(20, BASE_HEIGHT - 40, (BASE_WIDTH - 40) * (difficulty / 20), 20);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(20, BASE_HEIGHT - 40, BASE_WIDTH - 40, 20);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('DIFFICULTY', 25, BASE_HEIGHT - 48);
+            }
+
+            drawStartScreen() {
+                this.drawText("⭕ STOP THE DOT", CENTER_X, CENTER_Y - 100, "42px Arial", "white", "black");
+                this.drawText("Click when the dot is in the", CENTER_X, CENTER_Y - 30, "20px Arial", "#ccc");
+                this.drawText("GREEN ZONE", CENTER_X, CENTER_Y, "28px Arial", "#4CAF50");
+                this.drawText("Get 20 perfect stops to win!", CENTER_X, CENTER_Y + 40, "18px Arial", "#FFD700");
+                this.drawText("Click to START", CENTER_X, CENTER_Y + 100, "24px Arial", "#FFD700");
+                
+                // Draw example circle
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(CENTER_X, CENTER_Y + 180, 60, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                const exampleAngle = (Date.now() / 1000) % (Math.PI * 2);
+                const ex = CENTER_X + Math.cos(exampleAngle) * 60;
+                const ey = CENTER_Y + 180 + Math.sin(exampleAngle) * 60;
+                ctx.fillStyle = '#FFD700';
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(ex, ey, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            drawFailScreen() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+                this.drawText("❌ " + this.message + " ❌", CENTER_X, CENTER_Y - 80, "36px Arial", "#FF4444", "black");
+                this.drawText(`You got ${this.score} / 20`, CENTER_X, CENTER_Y - 20, "28px Arial", "white");
+                this.drawText(`Zone was ${Math.round(this.targetZoneSize)}° wide`, CENTER_X, CENTER_Y + 20, "20px Arial", "#FFD700");
+                this.drawText("Click or press R to try again", CENTER_X, CENTER_Y + 70, "20px Arial", "#ccc");
+            }
+
+            drawWinScreen() {
+                ctx.fillStyle = 'rgba(76, 175, 80, 0.9)';
+                ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+                this.drawText("🎉 YOU DID IT! 🎉", CENTER_X, CENTER_Y - 80, "42px Arial", "white", "black");
+                this.drawText("20 / 20 PERFECT STOPS!", CENTER_X, CENTER_Y - 20, "28px Arial", "#FFD700");
+                this.drawText(`Attempts: ${this.attempts}`, CENTER_X, CENTER_Y + 20, "24px Arial", "white");
+                
+                let message = "";
+                if (this.attempts === 1) {
+                    message = "FIRST TRY?! IMPOSSIBLE! 🏆";
+                } else if (this.attempts <= 3) {
+                    message = "You're a LEGEND! 🌟";
+                } else if (this.attempts <= 10) {
+                    message = "Amazing reflexes! 🔥";
+                } else {
+                    message = `Only took ${this.attempts} tries! 😅`;
+                }
+                
+                this.drawText(message, CENTER_X, CENTER_Y + 60, "20px Arial", "white");
+                this.drawText("Click or press R to play again", CENTER_X, CENTER_Y + 110, "18px Arial", "#ccc");
+            }
+
+            drawText(text, x, y, font, color, shadowColor = null) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                if (shadowColor) {
+                    ctx.fillStyle = shadowColor;
+                    ctx.fillText(text, x + 3, y + 3);
+                }
+
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+
+            updateUI() {
+                scoreDisplay.textContent = `${this.score} / 20`;
+                attemptsDisplay.textContent = `Attempts: ${this.attempts}`;
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop(now) {
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onClick(event) {
+            if (event.target.tagName === 'A') return;
+            game.onClick();
+        }
+
+        function onKeyDown(event) {
+            if (event.key === " " || event.key === "Spacebar") {
+                event.preventDefault();
+                game.onClick();
+            } else if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "FAILED" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            onClick(e);
+        }, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

@@ -16,14 +16,53 @@
         body {
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
+            max-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             margin: 0;
-            padding: 0;
+            padding: 5px;
             overflow: hidden;
             touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
         }
         
         #game-container {
@@ -31,17 +70,21 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             border-radius: 10px;
             overflow: hidden;
-            margin: 10px;
-            max-width: 100vw;
-            max-height: 100vh;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
         }
         
         #gameCanvas {
             display: block;
             background: #87CEEB;
             touch-action: none;
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: auto;
             cursor: crosshair;
         }
         
@@ -81,33 +124,90 @@
             color: #FF6B6B;
         }
         
-        .instructions {
-            margin-top: 20px;
-            color: white;
-            text-align: center;
-            font-size: 18px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            max-width: 700px;
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
         }
         
-        .instructions h2 {
-            margin-bottom: 10px;
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
             font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
         }
         
-        .instructions p {
-            margin: 5px 0;
+        .close-modal:hover {
+            color: #000;
         }
         
-        .warning {
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
             color: #FF6B6B;
             font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #game-info {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Back Button -->
-    <a href="/" class="back-button">Home</a>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">🦏 Ring the Rhino</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -119,19 +219,40 @@
             </div>
         </div>
     </div>
-    
-    <div class="instructions">
-        <h2>🦏 Ring the Rhino</h2>
-        <p>The rhino is sleeping... Put <strong>10 rings on his horn</strong> to win!</p>
-        <p class="warning">⚠️ DON'T WAKE HIM UP!</p>
-        <p><strong>Wake conditions:</strong></p>
-        <p>🔴 Hit his HEAD 7 times = instant wake up!</p>
-        <p>⏰ After 20 seconds, he might wake randomly</p>
-        <p><strong>Difficulty:</strong></p>
-        <p>🪰 Flies annoy him - he moves his head FAST!</p>
-        <p>💨 Random wind affects your throws!</p>
-        <p>✅ Hitting his body is OK (doesn't count)</p>
-        <p><small>Click to throw rings • Press R to restart</small></p>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🦏 Ring the Rhino - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>The rhino is sleeping... Put <strong>10 rings on his horn</strong> to win!</p>
+                <p class="warning">⚠️ DON'T WAKE HIM UP!</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap</strong> to throw a ring</p>
+                <p>• <strong>Drag</strong> to aim (desktop: mouse, mobile: finger)</p>
+                <p>• <strong>Press R</strong> to restart after game over</p>
+                
+                <h3>⚠️ Wake Conditions</h3>
+                <p>• Hit his <strong>HEAD 7 times</strong> = instant wake up!</p>
+                <p>• After <strong>20 seconds</strong>, he might wake randomly (chance increases over time)</p>
+                <p>• Hitting his <strong>body</strong> is OK (doesn't count toward wake)</p>
+                
+                <h3>The Challenge</h3>
+                <p>• <strong>25 flies</strong> buzz around his head - they annoy him!</p>
+                <p>• Flies make him move his head <strong>FAST and RANDOMLY</strong></p>
+                <p>• <strong>Random wind</strong> affects your ring throws (shown as animated lines)</p>
+                <p>• The horn is at the <strong>tip of his nose</strong> - look for the golden target!</p>
+                
+                <h3>Tips</h3>
+                <p>• Watch the wind lines to predict trajectory</p>
+                <p>• Aim for the golden glowing target on the horn tip</p>
+                <p>• Don't panic if he moves - wait for a good moment</p>
+                <p>• Avoid hitting the head - it counts toward wake!</p>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -150,14 +271,32 @@
         let scale = 1;
 
         function resizeCanvas() {
-            const maxWidth = window.innerWidth - 40;
-            const maxHeight = window.innerHeight - 150;
+            // Get actual header height from DOM
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
             
-            let width = Math.min(BASE_WIDTH, maxWidth);
-            let height = width / ASPECT_RATIO;
+            // Calculate available space - use ALL available height
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
             
-            if (height > maxHeight) {
-                height = maxHeight;
+            // Fill available space - prioritize height
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            // If width exceeds available space, scale down
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            // Ensure we don't exceed base dimensions
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
                 width = height * ASPECT_RATIO;
             }
             
@@ -171,10 +310,21 @@
             scale = width / BASE_WIDTH;
         }
 
-        resizeCanvas();
+        // Resize immediately on load and after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        // Also resize after a short delay to ensure header is rendered
+        setTimeout(resizeCanvas, 100);
+        
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('orientationchange', () => {
-            setTimeout(resizeCanvas, 100);
+            setTimeout(resizeCanvas, 200);
         });
         const MAX_HEAD_HITS = 7;
         const DANGER_TIME = 20; // After 20 seconds, random wake ups
@@ -971,15 +1121,22 @@
 
         function onTouchEnd(event) {
             event.preventDefault();
-            isTouching = false;
-            const pos = getInputPosition(event);
-            if (game.gameState === "START") {
-                game.start();
-            } else if (game.gameState === "PLAYING") {
-                game.throwRing(game.mouseX, game.mouseY);
-            } else if (game.gameState === "LOST" || game.gameState === "WON") {
-                game.start();
+            if (isTouching) {
+                // Use the actual touch position, not mouseX/Y
+                const touch = event.changedTouches[0];
+                const rect = canvas.getBoundingClientRect();
+                const x = (touch.clientX - rect.left) / scale;
+                const y = (touch.clientY - rect.top) / scale;
+                
+                if (game.gameState === "START") {
+                    game.start();
+                } else if (game.gameState === "PLAYING") {
+                    game.throwRing(x, y);
+                } else if (game.gameState === "LOST" || game.gameState === "WON") {
+                    game.start();
+                }
             }
+            isTouching = false;
         }
 
         function onKeyDown(event) {
@@ -996,6 +1153,29 @@
         canvas.addEventListener("touchmove", onTouchMove, { passive: false });
         canvas.addEventListener("click", onClick);
         canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
         document.addEventListener("keydown", onKeyDown);
         canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 

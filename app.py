@@ -66,6 +66,18 @@ async def bird_hunt(request):
     return FileResponse(file_path)
 
 
+async def chaos_bird(request):
+    """Serve Chaos Bird game"""
+    file_path = os.path.join(BASE_DIR, "games", "chaos-bird", "index.html")
+    return FileResponse(file_path)
+
+
+async def stop_the_dot(request):
+    """Serve Stop The Dot game"""
+    file_path = os.path.join(BASE_DIR, "games", "stop-the-dot", "index.html")
+    return FileResponse(file_path)
+
+
 # Define routes
 routes = [
     Route("/", homepage),
@@ -85,6 +97,10 @@ routes = [
     Route("/games/bottle-aim/", bottle_aim),
     Route("/games/bird-hunt", bird_hunt),
     Route("/games/bird-hunt/", bird_hunt),
+    Route("/games/chaos-bird", chaos_bird),
+    Route("/games/chaos-bird/", chaos_bird),
+    Route("/games/stop-the-dot", stop_the_dot),
+    Route("/games/stop-the-dot/", stop_the_dot),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 

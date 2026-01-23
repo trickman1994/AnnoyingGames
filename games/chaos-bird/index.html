@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chaos Bird - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%, #90EE90 100%);
+            cursor: default;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            #eggs {
+                font-size: 18px;
+            }
+
+            #deaths {
+                font-size: 12px;
+            }
+        }
+
+        #eggs {
+            color: #FFD700;
+            font-size: 24px;
+            text-shadow: 0 0 10px #FFD700;
+        }
+
+        #deaths {
+            color: #FF4444;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            padding: 0 20px;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        
+        .warning {
+            color: #ff5722;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 10px;
+            text-shadow: 0 0 10px rgba(255, 87, 34, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">🐦 Chaos Bird</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="stats">
+            <div id="eggs">🥚 0 / 20</div>
+            <div id="deaths">💀 Deaths: 0</div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🐦 Chaos Bird - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Collect <strong>20 GOLDEN EGGS</strong> to win while avoiding the moving RED ZONES!</p>
+                
+                <h3>Controls</h3>
+                <p><strong>CLICK/TAP anywhere</strong> on the screen → bird flies toward that position!</p>
+                <p><strong>Distance = Force:</strong> Far click = big movement • Close click = small adjustment</p>
+                
+                <h3>⚠️ The Chaos</h3>
+                <p>• Red zones spawn from edges after 1 second (grace period!)</p>
+                <p>• Red zones move around and bounce off walls</p>
+                <p>• Touch a red zone = DEATH</p>
+                <p class="warning">💀 DIE = LOSE HALF YOUR EGGS! (Rounded down)</p>
+                <p>• More eggs collected = faster red zones</p>
+                <p>• Every 5 eggs = new red zone spawns</p>
+                
+                <h3>Danger Zone</h3>
+                <p>• Bottom 80px is water/fire zone - touching it = DEATH</p>
+                <p>• Top of screen is safe (bird bounces off)</p>
+                
+                <h3>Tips</h3>
+                <p>• Click above the bird for extra upward boost</p>
+                <p>• Use short clicks for precise movements</p>
+                <p>• Watch for red zones approaching from edges</p>
+                <p>• Don't panic - stay calm and collect eggs!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const eggsDisplay = document.getElementById("eggs");
+        const deathsDisplay = document.getElementById("deaths");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 600;
+        const BASE_HEIGHT = 800;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            // Get actual header height from DOM
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70; // Include margin
+            const padding = 5;
+            
+            // Calculate available space - use ALL available height
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            // Fill available space - prioritize height
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            // If width exceeds available space, scale down
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            // Ensure we don't exceed base dimensions
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        // Resize immediately on load and after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        // Also resize after a short delay to ensure header is rendered
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        const GRAVITY = 0.15; // Reduced gravity for better floating
+        const FLAP_STRENGTH = -9;
+        const BIRD_SIZE = 25;
+        const EGG_SIZE = 20;
+        const EGGS_TO_WIN = 20;
+
+        class Bird {
+            constructor() {
+                this.x = CANVAS_WIDTH / 4;
+                this.y = CANVAS_HEIGHT / 2;
+                this.vy = 0;
+                this.vx = 0;
+                this.size = BIRD_SIZE;
+                this.angle = 0;
+                this.flapTimer = 0;
+            }
+
+            moveToward(clickX, clickY) {
+                // Calculate direction and distance from click
+                const dx = clickX - this.x;
+                const dy = clickY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 10) { // Minimum distance to avoid jitter
+                    // Normalize direction
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    
+                    // Apply force based on distance (closer = less force, farther = more force)
+                    let force = Math.min(distance / 40, 12); // Increased max force to 12
+                    
+                    // Extra boost for upward clicks (floating effect)
+                    if (dy < 0) { // Clicking above the bird
+                        force *= 1.5; // 50% more force upward
+                    }
+                    
+                    this.vx += dirX * force;
+                    this.vy += dirY * force;
+                    
+                    // Cap max velocity (increased for better floating)
+                    const maxSpeed = 20;
+                    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    if (currentSpeed > maxSpeed) {
+                        this.vx = (this.vx / currentSpeed) * maxSpeed;
+                        this.vy = (this.vy / currentSpeed) * maxSpeed;
+                    }
+                    
+                    this.flapTimer = 0.3; // Visual flap
+                }
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                
+                // Apply gravity (reduced for floating)
+                this.vy += GRAVITY * dt;
+                
+                // Natural buoyancy - slight upward force when falling (floating effect)
+                if (this.vy > 0) { // Only when falling down
+                    this.vy *= 0.97; // Reduce downward velocity more (more float)
+                }
+                
+                // Apply friction (air resistance)
+                this.vx *= 0.98;
+                this.vy *= 0.995; // Less vertical friction for better float
+                
+                // Apply velocity
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // Keep within bounds
+                if (this.x < this.size) {
+                    this.x = this.size;
+                    this.vx *= -0.3; // Bounce
+                }
+                if (this.x > CANVAS_WIDTH - this.size) {
+                    this.x = CANVAS_WIDTH - this.size;
+                    this.vx *= -0.3;
+                }
+
+                // Calculate angle based on velocity
+                this.angle = Math.min(Math.max(this.vy / 10, -0.5), 1);
+
+                // Flap animation
+                if (this.flapTimer > 0) {
+                    this.flapTimer -= deltaTime;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Bird body
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Wing (flapping animation)
+                if (this.flapTimer > 0) {
+                    ctx.fillStyle = '#FFA500';
+                    ctx.beginPath();
+                    ctx.ellipse(-5, 0, 15, 8, -0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Eye
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(8, -5, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(9, -5, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Beak
+                ctx.fillStyle = '#FF6347';
+                ctx.beginPath();
+                ctx.moveTo(15, 0);
+                ctx.lineTo(25, -3);
+                ctx.lineTo(25, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class RedZone {
+            constructor(birdX = null, birdY = null) {
+                this.radius = 40 + Math.random() * 30;
+                this.pulse = Math.random() * Math.PI * 2;
+                
+                // Spawn from edges (sides or top)
+                const spawnSide = Math.floor(Math.random() * 3); // 0 = top, 1 = left, 2 = right
+                const minDistanceFromBird = 150; // Minimum distance from bird
+                
+                let attempts = 0;
+                let validSpawn = false;
+                
+                while (!validSpawn && attempts < 50) {
+                    if (spawnSide === 0) {
+                        // Spawn from top
+                        this.x = this.radius + Math.random() * (CANVAS_WIDTH - this.radius * 2);
+                        this.y = this.radius;
+                        this.vx = (Math.random() - 0.5) * 2;
+                        this.vy = 1 + Math.random() * 2; // Move downward
+                    } else if (spawnSide === 1) {
+                        // Spawn from left side
+                        this.x = this.radius;
+                        this.y = this.radius + Math.random() * (CANVAS_HEIGHT - this.radius * 2 - 80); // Avoid danger zone
+                        this.vx = 1 + Math.random() * 2; // Move rightward
+                        this.vy = (Math.random() - 0.5) * 2;
+                    } else {
+                        // Spawn from right side
+                        this.x = CANVAS_WIDTH - this.radius;
+                        this.y = this.radius + Math.random() * (CANVAS_HEIGHT - this.radius * 2 - 80); // Avoid danger zone
+                        this.vx = -1 - Math.random() * 2; // Move leftward
+                        this.vy = (Math.random() - 0.5) * 2;
+                    }
+                    
+                    // Check if spawn is too close to bird
+                    if (birdX !== null && birdY !== null) {
+                        const dx = this.x - birdX;
+                        const dy = this.y - birdY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < minDistanceFromBird) {
+                            attempts++;
+                            continue;
+                        }
+                    }
+                    
+                    validSpawn = true;
+                }
+            }
+
+            update(deltaTime, speedMultiplier) {
+                const dt = deltaTime * 60;
+                
+                this.x += this.vx * speedMultiplier * dt;
+                this.y += this.vy * speedMultiplier * dt;
+
+                // Bounce off walls
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.vx *= -1;
+                }
+                if (this.x > CANVAS_WIDTH - this.radius) {
+                    this.x = CANVAS_WIDTH - this.radius;
+                    this.vx *= -1;
+                }
+                if (this.y < this.radius) {
+                    this.y = this.radius;
+                    this.vy *= -1;
+                }
+                // Bounce off danger zone (but don't go into it)
+                if (this.y > CANVAS_HEIGHT - 80 - this.radius) {
+                    this.y = CANVAS_HEIGHT - 80 - this.radius;
+                    this.vy *= -1;
+                }
+
+                this.pulse += deltaTime * 5;
+            }
+
+            draw() {
+                const pulseSize = Math.sin(this.pulse) * 5;
+                
+                // Outer glow
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius + pulseSize + 10);
+                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.4)');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + pulseSize + 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Main circle
+                ctx.fillStyle = '#FF0000';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + pulseSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            collidesWith(bird) {
+                const dx = this.x - bird.x;
+                const dy = this.y - bird.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius + bird.size;
+            }
+        }
+
+        class Egg {
+            constructor() {
+                this.x = 50 + Math.random() * (CANVAS_WIDTH - 100);
+                // Avoid danger zone at bottom (80px high) - spawn eggs above it
+                const dangerZoneHeight = 80;
+                const safeAreaHeight = CANVAS_HEIGHT - dangerZoneHeight;
+                this.y = 50 + Math.random() * (safeAreaHeight - 100);
+                this.size = EGG_SIZE;
+                this.sparkle = Math.random() * Math.PI * 2;
+            }
+
+            update(deltaTime) {
+                this.sparkle += deltaTime * 3;
+            }
+
+            draw() {
+                // Sparkle effect
+                const sparkleSize = Math.sin(this.sparkle) * 3;
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 10 + sparkleSize;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.size + sparkleSize, this.size * 1.3 + sparkleSize, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.ellipse(this.x - 5, this.y - 5, this.size * 0.3, this.size * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            collidesWith(bird) {
+                const dx = this.x - bird.x;
+                const dy = this.y - bird.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.size + bird.size;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 1;
+                this.color = color;
+                this.size = 3 + Math.random() * 5;
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.vy += 0.3 * dt;
+                this.life -= deltaTime * 2;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.bird = new Bird();
+                this.redZones = [];
+                this.eggs = [];
+                this.particles = [];
+                this.eggsCollected = 0;
+                this.deaths = 0;
+                this.gameState = "START"; // START, PLAYING, DEAD, WON
+                this.screenShake = 0;
+                this.shakeX = 0;
+                this.shakeY = 0;
+                this.speedMultiplier = 1;
+                this.gameTime = 0; // Track how long the game has been running
+                this.redZonesSpawned = false; // Track if red zones have been spawned
+                
+                this.spawnInitialObjects();
+            }
+
+            spawnInitialObjects() {
+                // Don't spawn red zones at start - they appear after 1 second!
+                // Just spawn first egg
+                this.spawnEgg();
+            }
+
+            spawnEgg() {
+                let egg;
+                let attempts = 0;
+                let validPosition = false;
+                const dangerZoneHeight = 80;
+
+                // Try to find a position not too close to red zones and not in danger zone
+                while (!validPosition && attempts < 50) {
+                    egg = new Egg();
+                    validPosition = true;
+                    
+                    // Check if egg is in danger zone (bottom 80px)
+                    if (egg.y + egg.size > CANVAS_HEIGHT - dangerZoneHeight) {
+                        validPosition = false;
+                        attempts++;
+                        continue;
+                    }
+                    
+                    // Only check red zones if they exist
+                    if (this.redZones.length > 0) {
+                        for (const zone of this.redZones) {
+                            const dx = egg.x - zone.x;
+                            const dy = egg.y - zone.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            if (distance < zone.radius + 50) {
+                                validPosition = false;
+                                break;
+                            }
+                        }
+                    }
+                    attempts++;
+                }
+
+                this.eggs.push(egg);
+            }
+
+            start() {
+                this.bird = new Bird();
+                this.particles = [];
+                this.redZones = []; // Clear red zones
+                this.redZonesSpawned = false; // Reset spawn flag
+                this.gameTime = 0; // Reset game time
+                this.gameState = "PLAYING";
+                this.screenShake = 0;
+                
+                // If restarting after death, keep eggs and deaths count
+                // If restarting after START, reset everything
+                if (this.gameState === "START") {
+                    this.eggsCollected = 0;
+                    this.deaths = 0;
+                }
+                
+                this.updateUI();
+            }
+
+            onDeath() {
+                this.gameState = "DEAD";
+                this.deaths++;
+                
+                // Lose HALF the eggs (rounded down) - EVIL!
+                this.eggsCollected = Math.floor(this.eggsCollected / 2);
+                
+                // Screen shake!
+                this.screenShake = 0.5;
+                
+                // Create death particles
+                for (let i = 0; i < 30; i++) {
+                    this.particles.push(new Particle(this.bird.x, this.bird.y, '#FFD700'));
+                    this.particles.push(new Particle(this.bird.x, this.bird.y, '#FF0000'));
+                }
+                
+                this.updateUI();
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Track game time
+                this.gameTime += deltaTime;
+
+                // Spawn red zones after 1 second (grace period!)
+                if (!this.redZonesSpawned && this.gameTime >= 1.0) {
+                    for (let i = 0; i < 3; i++) {
+                        this.redZones.push(new RedZone(this.bird.x, this.bird.y));
+                    }
+                    this.redZonesSpawned = true;
+                }
+
+                // Update speed multiplier based on eggs collected (gets harder!)
+                this.speedMultiplier = 1 + (this.eggsCollected / EGGS_TO_WIN) * 1.5;
+
+                // Update bird
+                this.bird.update(deltaTime);
+
+                // Keep bird from going above screen (but don't kill)
+                if (this.bird.y < this.bird.size) {
+                    this.bird.y = this.bird.size;
+                    this.bird.vy = 0; // Stop upward movement
+                }
+
+                // Check if bird hit the bottom (water/fire zone)
+                if (this.bird.y > CANVAS_HEIGHT - this.bird.size - 80) {
+                    this.onDeath();
+                    return;
+                }
+
+                // Update red zones
+                for (const zone of this.redZones) {
+                    zone.update(deltaTime, this.speedMultiplier);
+                    if (zone.collidesWith(this.bird)) {
+                        this.onDeath();
+                        return;
+                    }
+                }
+
+                // Update eggs
+                for (let i = this.eggs.length - 1; i >= 0; i--) {
+                    this.eggs[i].update(deltaTime);
+                    if (this.eggs[i].collidesWith(this.bird)) {
+                        // Collect egg!
+                        this.eggsCollected++;
+                        
+                        // Particles
+                        for (let j = 0; j < 15; j++) {
+                            this.particles.push(new Particle(this.eggs[i].x, this.eggs[i].y, '#FFD700'));
+                        }
+                        
+                        this.eggs.splice(i, 1);
+                        
+                        // Spawn new egg
+                        if (this.eggsCollected < EGGS_TO_WIN) {
+                            this.spawnEgg();
+                        }
+                        
+                        // Add a new red zone every 5 eggs - MORE CHAOS!
+                        if (this.eggsCollected % 5 === 0 && this.eggsCollected > 0) {
+                            this.redZones.push(new RedZone(this.bird.x, this.bird.y));
+                            this.screenShake = 0.3;
+                        }
+                        
+                        this.updateUI();
+                        
+                        // Check win condition
+                        if (this.eggsCollected >= EGGS_TO_WIN) {
+                            this.gameState = "WON";
+                        }
+                    }
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(deltaTime);
+                    if (this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update screen shake
+                if (this.screenShake > 0) {
+                    this.screenShake -= deltaTime;
+                    this.shakeX = (Math.random() - 0.5) * 20 * this.screenShake;
+                    this.shakeY = (Math.random() - 0.5) * 20 * this.screenShake;
+                } else {
+                    this.shakeX = 0;
+                    this.shakeY = 0;
+                }
+            }
+
+            draw() {
+                // Apply screen shake
+                ctx.save();
+                ctx.translate(this.shakeX, this.shakeY);
+
+                // Clear canvas
+                const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                gradient.addColorStop(0, '#87CEEB');
+                gradient.addColorStop(0.7, '#E0F6FF');
+                gradient.addColorStop(1, '#90EE90');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                if (this.gameState === "START") {
+                    this.drawStartScreen();
+                } else if (this.gameState === "PLAYING") {
+                    this.drawGame();
+                } else if (this.gameState === "DEAD") {
+                    this.drawGame();
+                    this.drawDeathScreen();
+                } else if (this.gameState === "WON") {
+                    this.drawGame();
+                    this.drawWinScreen();
+                }
+
+                ctx.restore();
+            }
+
+            drawGame() {
+                // Draw danger zone at bottom (water/fire)
+                this.drawDangerZone();
+
+                // Draw red zones
+                for (const zone of this.redZones) {
+                    zone.draw();
+                }
+
+                // Draw eggs
+                for (const egg of this.eggs) {
+                    egg.draw();
+                }
+
+                // Draw bird
+                this.bird.draw();
+
+                // Draw particles
+                for (const particle of this.particles) {
+                    particle.draw();
+                }
+            }
+
+            drawDangerZone() {
+                const dangerHeight = 80;
+                const dangerY = CANVAS_HEIGHT - dangerHeight;
+                const time = Date.now() / 1000;
+
+                // Animated gradient (water/fire effect)
+                const gradient = ctx.createLinearGradient(0, dangerY, 0, CANVAS_HEIGHT);
+                
+                // Alternate between water (blue) and fire (red/orange) theme
+                const isFire = Math.floor(time / 2) % 2 === 0;
+                
+                if (isFire) {
+                    // Fire theme
+                    gradient.addColorStop(0, 'rgba(255, 100, 0, 0.3)');
+                    gradient.addColorStop(0.5, 'rgba(255, 50, 0, 0.6)');
+                    gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+                } else {
+                    // Water theme
+                    gradient.addColorStop(0, 'rgba(0, 100, 255, 0.3)');
+                    gradient.addColorStop(0.5, 'rgba(0, 50, 200, 0.6)');
+                    gradient.addColorStop(1, 'rgba(0, 0, 150, 0.8)');
+                }
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, dangerY, CANVAS_WIDTH, dangerHeight);
+
+                // Animated waves/flames
+                ctx.strokeStyle = isFire ? 'rgba(255, 200, 0, 0.8)' : 'rgba(100, 200, 255, 0.8)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                
+                for (let x = 0; x < CANVAS_WIDTH; x += 5) {
+                    const waveY = dangerY + Math.sin((x / 20) + (time * 3)) * 10 + 40;
+                    if (x === 0) {
+                        ctx.moveTo(x, waveY);
+                    } else {
+                        ctx.lineTo(x, waveY);
+                    }
+                }
+                ctx.stroke();
+
+                // Warning text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(isFire ? '🔥 FIRE ZONE 🔥' : '💧 WATER ZONE 💧', CANVAS_WIDTH / 2, dangerY + 25);
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('TOUCH = DEATH', CANVAS_WIDTH / 2, dangerY + 50);
+            }
+
+            drawStartScreen() {
+                this.drawText("🐦 CHAOS BIRD 🔥", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 140, "36px Arial", "white", "black");
+                this.drawText("CLICK/TAP anywhere on screen", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80, "20px Arial", "white");
+                this.drawText("Bird flies toward that position!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, "20px Arial", "white");
+                this.drawText("Collect 20 eggs to win", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 5, "18px Arial", "#FFD700");
+                this.drawText("Red zones appear after 1 second!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25, "18px Arial", "#FF4444");
+                this.drawText("⚠️ DIE = LOSE HALF YOUR EGGS", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55, "18px Arial", "#FF9800");
+                this.drawText("Click/Touch to START", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105, "24px Arial", "#FFD700");
+            }
+
+            drawDeathScreen() {
+                // Semi-transparent overlay
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                this.drawText("💀 YOU DIED! 💀", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "36px Arial", "#FF0000", "black");
+                this.drawText(`You had ${this.eggsCollected + Math.floor(this.eggsCollected / 2)} eggs`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "24px Arial", "#FFD700");
+                this.drawText(`Now you have ${this.eggsCollected} eggs`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25, "24px Arial", "#FF4444");
+                this.drawText("Press R or Click to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70, "20px Arial", "white");
+            }
+
+            drawWinScreen() {
+                // Semi-transparent overlay
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                this.drawText("🎉 YOU SURVIVED! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "36px Arial", "#FFD700", "black");
+                this.drawText("You collected all 20 eggs!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "24px Arial", "white");
+                this.drawText(`Deaths: ${this.deaths}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25, "24px Arial", this.deaths === 0 ? "#4CAF50" : "#FF9800");
+                this.drawText(this.deaths === 0 ? "IMPOSSIBLE! 🏆" : "You're a legend! 🏆", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60, "20px Arial", "#FFD700");
+                this.drawText("Press R or Click to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, "18px Arial", "white");
+            }
+
+            drawText(text, x, y, font, color, shadowColor = null) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                if (shadowColor) {
+                    ctx.fillStyle = shadowColor;
+                    ctx.fillText(text, x + 2, y + 2);
+                }
+
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+
+            updateUI() {
+                eggsDisplay.textContent = `🥚 ${this.eggsCollected} / ${EGGS_TO_WIN}`;
+                deathsDisplay.textContent = `💀 Deaths: ${this.deaths}`;
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop(now) {
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function getCanvasPosition(event) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            const x = (clientX - rect.left) / scale;
+            const y = (clientY - rect.top) / scale;
+            return { x, y };
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A') {
+                return;
+            }
+
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                const pos = getCanvasPosition(event);
+                game.bird.moveToward(pos.x, pos.y);
+            } else if (game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
+            }
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            
+            // Get touch position from changedTouches (since finger is lifted)
+            const touch = event.changedTouches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = (touch.clientX - rect.left) / scale;
+            const y = (touch.clientY - rect.top) / scale;
+
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.bird.moveToward(x, y);
+            } else if (game.gameState === "DEAD" || game.gameState === "WON") {
+                game.start();
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === " " || event.key === "Spacebar") {
+                event.preventDefault();
+                if (game.gameState === "START") {
+                    game.start();
+                }
+            } else if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "DEAD" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
