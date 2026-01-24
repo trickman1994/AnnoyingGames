@@ -84,6 +84,24 @@ async def match_throw(request):
     return FileResponse(file_path)
 
 
+async def the_collection(request):
+    """Serve The Collection game"""
+    file_path = os.path.join(BASE_DIR, "games", "the-collection", "index.html")
+    return FileResponse(file_path)
+
+
+async def the_perfect_stack(request):
+    """Serve The Perfect Stack game"""
+    file_path = os.path.join(BASE_DIR, "games", "the-perfect-stack", "index.html")
+    return FileResponse(file_path)
+
+
+async def color_cascade(request):
+    """Serve Color Cascade game"""
+    file_path = os.path.join(BASE_DIR, "games", "color-cascade", "index.html")
+    return FileResponse(file_path)
+
+
 # Define routes
 routes = [
     Route("/", homepage),
@@ -109,6 +127,12 @@ routes = [
     Route("/games/stop-the-dot/", stop_the_dot),
     Route("/games/match-throw", match_throw),
     Route("/games/match-throw/", match_throw),
+    Route("/games/the-collection", the_collection),
+    Route("/games/the-collection/", the_collection),
+    Route("/games/the-perfect-stack", the_perfect_stack),
+    Route("/games/the-perfect-stack/", the_perfect_stack),
+    Route("/games/color-cascade", color_cascade),
+    Route("/games/color-cascade/", color_cascade),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 

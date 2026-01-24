@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Collection - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #0f0f23 0%, #1a1a2e 100%);
+            cursor: pointer;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        #progress-bar-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        #progress-bar-bg {
+            width: 100%;
+            height: 30px;
+            background: rgba(50, 50, 50, 0.8);
+            border: 2px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A, #CDDC39, #FFC107, #FF9800);
+            width: 0%;
+            transition: width 0.3s;
+            position: relative;
+        }
+
+        #progress-bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            z-index: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+
+            #progress-bar-container {
+                width: 90%;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">💎 The Collection</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="800"></canvas>
+        <div id="stats">
+            <div id="clicks">Clicks: 0</div>
+            <div id="collected">Collected: 0/10</div>
+            <div id="streak">Streak: 0</div>
+        </div>
+        <div id="progress-bar-container">
+            <div id="progress-bar-bg">
+                <div id="progress-bar-fill"></div>
+                <div id="progress-bar-text">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>💎 The Collection - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Collect <strong>10 rare gems</strong> to complete your collection!</p>
+                <p>Click anywhere to search for gems...</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap anywhere</strong> on the screen to search</p>
+                <p>• Each click has a chance to find a gem</p>
+                <p>• Watch the progress bar fill up!</p>
+                <p>• <strong>Press R</strong> to restart</p>
+                
+                <h3>⚠️ The Mechanics</h3>
+                <p>• <strong>Variable rewards:</strong> Sometimes you get gems, sometimes you don't</p>
+                <p>• <strong>Progress bar:</strong> Shows your collection progress</p>
+                <p>• <strong>Streak system:</strong> Build streaks for better chances</p>
+                <p>• <strong>Rare gems:</strong> Some gems are harder to find than others</p>
+                <p>• <strong>Visual feedback:</strong> Exciting animations when you find something!</p>
+                
+                <h3>Tips</h3>
+                <p>• Keep clicking - persistence pays off!</p>
+                <p>• Build your streak for better rewards</p>
+                <p>• Watch for special effects - they mean good things!</p>
+                <p>• The progress bar shows you're getting closer...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const clicksDisplay = document.getElementById("clicks");
+        const collectedDisplay = document.getElementById("collected");
+        const streakDisplay = document.getElementById("streak");
+        const progressFill = document.getElementById("progress-bar-fill");
+        const progressText = document.getElementById("progress-bar-text");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 600;
+        const BASE_HEIGHT = 800;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const progressBarHeight = 80; // Approximate height of progress bar
+            const padding = 5;
+            
+            const availableHeight = window.innerHeight - headerHeight - progressBarHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Game constants
+        const GEMS_TO_WIN = 10;
+        const GEM_TYPES = [
+            { name: "Common", color: "#4CAF50", rarity: 0.5, value: 1 },
+            { name: "Uncommon", color: "#2196F3", rarity: 0.3, value: 1 },
+            { name: "Rare", color: "#9C27B0", rarity: 0.15, value: 1 },
+            { name: "Epic", color: "#FF9800", rarity: 0.04, value: 1 },
+            { name: "Legendary", color: "#FFD700", rarity: 0.01, value: 1 }
+        ];
+
+        class Particle {
+            constructor(x, y, color, type = 'sparkle') {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8 - 2;
+                this.life = 1;
+                this.color = color;
+                this.size = 3 + Math.random() * 4;
+                this.type = type;
+            }
+
+            update(deltaTime) {
+                this.x += this.vx * deltaTime * 60;
+                this.y += this.vy * deltaTime * 60;
+                this.vy += 0.3 * deltaTime * 60; // Gravity
+                this.life -= deltaTime * 2;
+            }
+
+            draw() {
+                if (this.life <= 0) return;
+                
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                
+                if (this.type === 'sparkle') {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Cross sparkle
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - this.size * 2, this.y);
+                    ctx.lineTo(this.x + this.size * 2, this.y);
+                    ctx.moveTo(this.x, this.y - this.size * 2);
+                    ctx.lineTo(this.x, this.y + this.size * 2);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        class Gem {
+            constructor(type, x, y) {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.size = 30;
+                this.rotation = 0;
+                this.pulse = 0;
+                this.collected = false;
+                this.collectTimer = 0;
+            }
+
+            update(deltaTime) {
+                this.rotation += deltaTime * 2;
+                this.pulse += deltaTime * 5;
+                if (this.collected) {
+                    this.collectTimer += deltaTime;
+                    this.size += deltaTime * 100;
+                    this.y -= deltaTime * 200;
+                }
+            }
+
+            draw() {
+                if (this.collected && this.collectTimer > 0.5) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                const pulseSize = this.size + Math.sin(this.pulse) * 5;
+                
+                // Gem glow
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulseSize);
+                gradient.addColorStop(0, this.type.color);
+                gradient.addColorStop(0.5, this.type.color + "CC");
+                gradient.addColorStop(1, this.type.color + "00");
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, pulseSize * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Gem body (diamond shape)
+                ctx.fillStyle = this.type.color;
+                ctx.beginPath();
+                ctx.moveTo(0, -pulseSize);
+                ctx.lineTo(pulseSize * 0.7, 0);
+                ctx.lineTo(0, pulseSize);
+                ctx.lineTo(-pulseSize * 0.7, 0);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Gem highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.beginPath();
+                ctx.moveTo(0, -pulseSize * 0.3);
+                ctx.lineTo(pulseSize * 0.3, 0);
+                ctx.lineTo(0, pulseSize * 0.3);
+                ctx.lineTo(-pulseSize * 0.3, 0);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = "START"; // START, PLAYING, WON
+                this.clicks = 0;
+                this.collected = 0;
+                this.streak = 0;
+                this.maxStreak = 0;
+                this.particles = [];
+                this.gems = [];
+                this.clickEffects = [];
+                this.lastClickTime = 0;
+                this.progress = 0; // Fake progress (0-100)
+                this.realProgress = 0; // Actual progress (0-100)
+                this.nearMissTimer = 0;
+                this.anticipationLevel = 0;
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+                this.clicks = 0;
+                this.collected = 0;
+                this.streak = 0;
+                this.maxStreak = 0;
+                this.particles = [];
+                this.gems = [];
+                this.clickEffects = [];
+                this.progress = 0;
+                this.realProgress = 0;
+                this.nearMissTimer = 0;
+                this.anticipationLevel = 0;
+                this.updateUI();
+            }
+
+            onClick(x, y) {
+                if (this.gameState === "START") {
+                    this.start();
+                    return;
+                }
+                if (this.gameState !== "PLAYING") return;
+
+                this.clicks++;
+                this.lastClickTime = Date.now();
+                
+                // Create click effect
+                this.clickEffects.push({
+                    x, y,
+                    timer: 0.3,
+                    size: 0
+                });
+
+                // Variable ratio reinforcement - random chance
+                const baseChance = 0.15; // 15% base chance
+                const streakBonus = Math.min(this.streak * 0.02, 0.1); // Up to 10% bonus
+                const chance = baseChance + streakBonus;
+                
+                // Near-miss effect - sometimes show progress but don't give gem
+                const nearMissChance = 0.3;
+                const isNearMiss = Math.random() < nearMissChance && this.collected < GEMS_TO_WIN;
+                
+                if (Math.random() < chance) {
+                    // WIN! Found a gem
+                    this.collected++;
+                    this.streak++;
+                    this.maxStreak = Math.max(this.maxStreak, this.streak);
+                    
+                    // Determine gem rarity
+                    const rand = Math.random();
+                    let gemType = GEM_TYPES[0];
+                    let cumulative = 0;
+                    for (const type of GEM_TYPES) {
+                        cumulative += type.rarity;
+                        if (rand < cumulative) {
+                            gemType = type;
+                            break;
+                        }
+                    }
+                    
+                    // Create gem
+                    const gem = new Gem(gemType, x, y);
+                    gem.collected = true;
+                    this.gems.push(gem);
+                    
+                    // Celebration particles
+                    for (let i = 0; i < 30; i++) {
+                        this.particles.push(new Particle(x, y, gemType.color, 'sparkle'));
+                    }
+                    
+                    // Update real progress
+                    this.realProgress = (this.collected / GEMS_TO_WIN) * 100;
+                    
+                    // Anticipation reset
+                    this.anticipationLevel = 0;
+                    
+                    if (this.collected >= GEMS_TO_WIN) {
+                        setTimeout(() => {
+                            this.gameState = "WON";
+                        }, 1000);
+                    }
+                } else if (isNearMiss) {
+                    // NEAR MISS - show fake progress
+                    this.streak = 0; // Reset streak on near miss (frustration)
+                    this.nearMissTimer = 1;
+                    
+                    // Fake progress increase (but not real)
+                    this.progress = Math.min(this.progress + 5 + Math.random() * 10, 95);
+                    if (this.progress > this.realProgress) {
+                        this.progress = this.realProgress + 5; // Always show more than real
+                    }
+                    
+                    // Near-miss particles (different color)
+                    for (let i = 0; i < 15; i++) {
+                        this.particles.push(new Particle(x, y, "#FFD700", 'sparkle'));
+                    }
+                    
+                    // Build anticipation
+                    this.anticipationLevel = Math.min(this.anticipationLevel + 0.2, 1);
+                } else {
+                    // MISS - nothing happens
+                    this.streak = 0;
+                    
+                    // Small progress (very slow)
+                    this.progress = Math.min(this.progress + 0.5, this.realProgress + 2);
+                    
+                    // Build anticipation slightly
+                    this.anticipationLevel = Math.min(this.anticipationLevel + 0.05, 1);
+                }
+                
+                this.updateUI();
+            }
+
+            update(deltaTime) {
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(deltaTime);
+                    if (this.particles[i].life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update gems
+                for (let i = this.gems.length - 1; i >= 0; i--) {
+                    this.gems[i].update(deltaTime);
+                    if (this.gems[i].collected && this.gems[i].collectTimer > 1) {
+                        this.gems.splice(i, 1);
+                    }
+                }
+
+                // Update click effects
+                for (let i = this.clickEffects.length - 1; i >= 0; i--) {
+                    const effect = this.clickEffects[i];
+                    effect.timer -= deltaTime;
+                    effect.size += deltaTime * 200;
+                    if (effect.timer <= 0) {
+                        this.clickEffects.splice(i, 1);
+                    }
+                }
+
+                // Near-miss timer
+                if (this.nearMissTimer > 0) {
+                    this.nearMissTimer -= deltaTime;
+                }
+
+                // Progress bar "drift" - slowly move fake progress toward real
+                if (this.progress > this.realProgress) {
+                    this.progress = Math.max(this.progress - deltaTime * 2, this.realProgress);
+                } else {
+                    this.progress = Math.min(this.progress + deltaTime * 0.5, this.realProgress);
+                }
+
+                // Update progress bar
+                progressFill.style.width = this.progress + "%";
+                progressText.textContent = Math.floor(this.progress) + "%";
+            }
+
+            updateUI() {
+                clicksDisplay.textContent = `Clicks: ${this.clicks}`;
+                collectedDisplay.textContent = `Collected: ${this.collected}/${GEMS_TO_WIN}`;
+                streakDisplay.textContent = `Streak: ${this.streak}`;
+            }
+
+            draw() {
+                // Clear canvas
+                ctx.fillStyle = "#0f0f23";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw stars background
+                ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+                for (let i = 0; i < 50; i++) {
+                    const x = (i * 37) % CANVAS_WIDTH;
+                    const y = (i * 73) % CANVAS_HEIGHT;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                if (this.gameState === "START") {
+                    this.drawText("💎 THE COLLECTION", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100, "36px Arial", "white");
+                    this.drawText("Click anywhere to search for gems", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30, "20px Arial", "#FFD700");
+                    this.drawText("Collect 10 rare gems to win!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20, "18px Arial", "white");
+                    this.drawText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "24px Arial", "#4CAF50");
+                } else if (this.gameState === "PLAYING") {
+                    // Draw click effects
+                    for (const effect of this.clickEffects) {
+                        ctx.strokeStyle = `rgba(255, 215, 0, ${effect.timer / 0.3})`;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+
+                    // Draw anticipation indicator (subtle)
+                    if (this.anticipationLevel > 0.3) {
+                        ctx.fillStyle = `rgba(255, 215, 0, ${this.anticipationLevel * 0.3})`;
+                        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    }
+
+                    // Draw near-miss indicator
+                    if (this.nearMissTimer > 0) {
+                        ctx.fillStyle = `rgba(255, 215, 0, ${this.nearMissTimer * 0.2})`;
+                        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                        this.drawText("SO CLOSE!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "48px Arial", "#FFD700");
+                    }
+
+                    // Draw particles
+                    for (const particle of this.particles) {
+                        particle.draw();
+                    }
+
+                    // Draw gems
+                    for (const gem of this.gems) {
+                        gem.draw();
+                    }
+
+                    // Draw click hint
+                    if (Date.now() - this.lastClickTime > 2000) {
+                        this.drawText("Click to search...", CANVAS_WIDTH / 2, CANVAS_HEIGHT - 100, "18px Arial", "rgba(255, 255, 255, 0.5)");
+                    }
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 COLLECTION COMPLETE! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80, "42px Arial", "#FFD700");
+                    this.drawText(`You collected all ${GEMS_TO_WIN} gems!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, "24px Arial", "white");
+                    this.drawText(`Total clicks: ${this.clicks}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30, "20px Arial", "#888");
+                    this.drawText(`Max streak: ${this.maxStreak}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60, "20px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110, "18px Arial", "#4CAF50");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / scale;
+            const y = (event.clientY - rect.top) / scale;
+            
+            game.onClick(x, y);
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = event.changedTouches[0];
+            const x = (touch.clientX - rect.left) / scale;
+            const y = (touch.clientY - rect.top) / scale;
+            
+            game.onClick(x, y);
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "WON") {
+                    game.start();
+                }
+            }
+        }
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

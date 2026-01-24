@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Perfect Stack - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #2c1810 0%, #3d2817 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 50%, #8B7355 50%, #654321 100%);
+            cursor: pointer;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        #goal-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 10px;
+            color: #FFD700;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            text-align: center;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        
+        .modal-body .warning {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats, #goal-indicator {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">📦 The Perfect Stack</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="800"></canvas>
+        <div id="stats">
+            <div id="blocks-stacked">Blocks: 0 / 10</div>
+            <div id="best-stack">Best: 0</div>
+            <div id="attempts">Attempts: 0</div>
+        </div>
+        <div id="goal-indicator">
+            <div>Goal: 10</div>
+            <div id="distance-to-goal" style="font-size: 12px; color: #4CAF50;">Keep going!</div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>📦 The Perfect Stack - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Stack <strong>10 blocks</strong> perfectly to reach the goal line!</p>
+                <p>You control when to drop each block - timing is everything!</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap</strong> to drop the moving block</p>
+                <p>• <strong>Time it perfectly</strong> to stack on top of the previous block</p>
+                <p>• <strong>Press R</strong> to restart after failure</p>
+                
+                <h3>⚠️ The Challenge</h3>
+                <p>• Blocks move left and right - you control when to drop</p>
+                <p>• Each block must land perfectly on the one below</p>
+                <p>• If blocks fall off, the stack collapses!</p>
+                <p>• Blocks get slightly smaller as you stack higher</p>
+                <p>• Physics can be tricky - precision matters!</p>
+                
+                <h3>Tips</h3>
+                <p>• Wait for the perfect moment to drop</p>
+                <p>• Center the block before dropping</p>
+                <p>• Watch the balance - each block affects stability</p>
+                <p>• You're always so close - keep trying!</p>
+                <p>• Your skill improves with each attempt!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const blocksStackedDisplay = document.getElementById("blocks-stacked");
+        const bestStackDisplay = document.getElementById("best-stack");
+        const attemptsDisplay = document.getElementById("attempts");
+        const distanceToGoalDisplay = document.getElementById("distance-to-goal");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 400;
+        const BASE_HEIGHT = 800;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
+            
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Game constants
+        const GOAL_HEIGHT = 10; // Need 10 blocks
+        const BLOCK_WIDTH = 80;
+        const BLOCK_HEIGHT = 30;
+        const BLOCK_SPEED = 2;
+        const GROUND_Y = CANVAS_HEIGHT - 50;
+
+        class Block {
+            constructor(x, y, width, isMoving = false) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = BLOCK_HEIGHT;
+                this.isMoving = isMoving;
+                this.vx = isMoving ? BLOCK_SPEED : 0;
+                this.rotation = 0;
+                this.falling = false;
+                this.vy = 0;
+                this.stable = !isMoving;
+                this.wobble = 0;
+                this.wobbleSpeed = 0;
+            }
+
+            update(deltaTime) {
+                if (this.isMoving && !this.falling) {
+                    // Move left and right
+                    this.x += this.vx * deltaTime * 60;
+                    
+                    // Bounce off walls
+                    if (this.x <= this.width / 2) {
+                        this.x = this.width / 2;
+                        this.vx = -this.vx;
+                    }
+                    if (this.x >= CANVAS_WIDTH - this.width / 2) {
+                        this.x = CANVAS_WIDTH - this.width / 2;
+                        this.vx = -this.vx;
+                    }
+                }
+                
+                if (this.falling) {
+                    // Fall down
+                    this.vy += 0.3 * deltaTime * 60; // Gravity (slower)
+                    this.y += this.vy * deltaTime * 60;
+                    this.rotation += this.vx * 0.1 * deltaTime * 60;
+                }
+                
+                // Wobble effect for unstable blocks
+                if (!this.stable && !this.falling) {
+                    this.wobbleSpeed += (Math.random() - 0.5) * 0.5;
+                    this.wobbleSpeed *= 0.9; // Damping
+                    this.wobble += this.wobbleSpeed * deltaTime * 60;
+                    this.rotation = this.wobble * 0.1;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                // Block shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.fillRect(-this.width / 2 + 3, this.height / 2 + 3, this.width, 5);
+                
+                // Block body
+                const gradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
+                gradient.addColorStop(0, "#8B7355");
+                gradient.addColorStop(0.5, "#654321");
+                gradient.addColorStop(1, "#3d2817");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                
+                // Block highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height / 3);
+                
+                // Block outline
+                ctx.strokeStyle = "#2c1810";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                
+                // Moving indicator
+                if (this.isMoving && !this.falling) {
+                    ctx.fillStyle = "#FFD700";
+                    ctx.beginPath();
+                    ctx.arc(this.width / 2 - 10, -this.height / 2 + 10, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = "START"; // START, PLAYING, FAILED, WON
+                this.blocks = [];
+                this.currentBlock = null;
+                this.stackedCount = 0;
+                this.bestStack = 0;
+                this.attempts = 0;
+                this.cameraY = 0;
+                this.particles = [];
+                this.nearMissTimer = 0;
+                this.instabilityLevel = 0;
+                this.lastDropTime = 0;
+                this.consecutiveLosses = 0;
+                this.winProbability = 0.15; // Base win chance (rigged)
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+                this.blocks = [];
+                this.stackedCount = 0;
+                this.cameraY = 0;
+                this.particles = [];
+                this.nearMissTimer = 0;
+                this.instabilityLevel = 0;
+                this.lastDropTime = 0;
+                
+                // Create ground block
+                const groundBlock = new Block(CANVAS_WIDTH / 2, GROUND_Y, BLOCK_WIDTH * 1.5, false);
+                groundBlock.stable = true;
+                this.blocks.push(groundBlock);
+                
+                // Create first moving block
+                this.spawnNewBlock();
+                
+                this.attempts++;
+                this.updateUI();
+            }
+
+            spawnNewBlock() {
+                // Calculate width (slightly smaller each time for difficulty)
+                const widthReduction = Math.min(this.stackedCount * 2, 20);
+                const blockWidth = BLOCK_WIDTH - widthReduction;
+                
+                // Calculate spawn position above the stack
+                const topBlock = this.blocks[this.blocks.length - 1];
+                const spawnY = topBlock.y - BLOCK_HEIGHT * 3; // 3 blocks above the top
+                
+                // Start moving block
+                this.currentBlock = new Block(
+                    CANVAS_WIDTH / 2,
+                    spawnY,
+                    blockWidth,
+                    true
+                );
+            }
+
+            dropBlock() {
+                if (!this.currentBlock || this.currentBlock.falling) return;
+                
+                this.currentBlock.falling = true;
+                this.currentBlock.isMoving = false;
+                this.lastDropTime = Date.now();
+                
+                // Calculate target position (top of stack)
+                const topBlock = this.blocks[this.blocks.length - 1];
+                const targetX = topBlock.x;
+                const currentX = this.currentBlock.x;
+                const offset = currentX - targetX;
+                
+                // ILLUSION OF CONTROL: Player thinks their timing matters
+                // But we'll rig it to fail at certain points for loss chasing
+                const alignment = Math.abs(offset) / (topBlock.width / 2);
+                
+                // Determine if this will be a "win" or "near-miss"
+                const shouldWin = this.calculateWin();
+                
+                // Make it easier to land blocks (more forgiving)
+                const alignmentThreshold = 1.2; // More forgiving
+                
+                if (shouldWin && alignment < alignmentThreshold) {
+                    // WIN - block lands successfully
+                    this.currentBlock.x = targetX + offset * 0.3; // Slight correction
+                    this.currentBlock.y = topBlock.y - BLOCK_HEIGHT;
+                    this.currentBlock.falling = false;
+                    this.currentBlock.stable = true;
+                    this.blocks.push(this.currentBlock);
+                    this.stackedCount++;
+                    this.consecutiveLosses = 0;
+                    this.winProbability = Math.min(this.winProbability + 0.02, 0.25); // Slightly increase chance
+                    
+                    // Success particles
+                    for (let i = 0; i < 20; i++) {
+                        this.particles.push({
+                            x: this.currentBlock.x,
+                            y: this.currentBlock.y,
+                            vx: (Math.random() - 0.5) * 5,
+                            vy: (Math.random() - 0.5) * 5 - 2,
+                            life: 1,
+                            color: '#4CAF50'
+                        });
+                    }
+                    
+                    if (this.stackedCount >= GOAL_HEIGHT) {
+                        this.gameState = "WON";
+                        this.bestStack = Math.max(this.bestStack, this.stackedCount);
+                    } else {
+                        this.spawnNewBlock();
+                    }
+                } else {
+                    // NEAR-MISS or FAIL
+                    // Make it look like it ALMOST worked
+                    const nearMiss = this.stackedCount >= GOAL_HEIGHT - 2; // Near-miss if close to goal
+                    
+                    // If alignment is decent, make it a near-miss (land but unstable)
+                    if (alignment < 1.5 || nearMiss) {
+                        // NEAR-MISS: Block lands but becomes unstable
+                        this.currentBlock.x = targetX + offset * 0.6;
+                        this.currentBlock.y = topBlock.y - BLOCK_HEIGHT;
+                        this.currentBlock.falling = false;
+                        this.currentBlock.stable = false; // Unstable!
+                        this.blocks.push(this.currentBlock);
+                        this.stackedCount++;
+                        this.nearMissTimer = 2; // Show "SO CLOSE!" message
+                        
+                        // Near-miss particles
+                        for (let i = 0; i < 15; i++) {
+                            this.particles.push({
+                                x: this.currentBlock.x,
+                                y: this.currentBlock.y,
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: (Math.random() - 0.5) * 4 - 2,
+                                life: 1,
+                                color: '#FFD700'
+                            });
+                        }
+                        
+                        // Make stack unstable - it will fall soon
+                        this.instabilityLevel = 1;
+                        
+                        // Spawn next block (but stack will likely fall)
+                        setTimeout(() => {
+                            if (this.gameState === "PLAYING") {
+                                this.spawnNewBlock();
+                            }
+                        }, 500);
+                    } else {
+                        // FAIL: Block falls off (only if really misaligned)
+                        this.currentBlock.x = targetX + offset;
+                        // Block will fall and trigger collapse after a delay
+                        setTimeout(() => {
+                            if (this.gameState === "PLAYING" && this.currentBlock && this.currentBlock.falling) {
+                                this.collapseStack();
+                            }
+                        }, 1000);
+                    }
+                    
+                    this.consecutiveLosses++;
+                    this.winProbability = Math.max(0.05, this.winProbability - 0.01); // Decrease chance slightly
+                }
+                
+                this.updateUI();
+            }
+
+            calculateWin() {
+                // RIGGED WIN CALCULATION
+                // More losses = slightly higher chance (loss chasing)
+                // But still mostly random to create frustration
+                
+                const baseChance = this.winProbability;
+                const lossBonus = Math.min(this.consecutiveLosses * 0.03, 0.15); // Up to 15% bonus
+                const stackBonus = this.stackedCount >= GOAL_HEIGHT - 1 ? 0.3 : 0; // Big bonus when almost there
+                
+                // Make early blocks easier to land (build confidence)
+                const earlyBonus = this.stackedCount < 3 ? 0.3 : 0;
+                
+                const totalChance = Math.min(baseChance + lossBonus + stackBonus + earlyBonus, 0.7); // Cap at 70%
+                
+                // But if we're at 8-9 blocks, make it harder (near-miss territory)
+                if (this.stackedCount >= GOAL_HEIGHT - 2) {
+                    return Math.random() < totalChance * 0.4; // Lower chance = more near-misses
+                }
+                
+                return Math.random() < totalChance;
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                // Update blocks
+                for (const block of this.blocks) {
+                    block.update(deltaTime);
+                }
+                
+                if (this.currentBlock) {
+                    this.currentBlock.update(deltaTime);
+                }
+
+                // Check for collapse (loss chasing trigger)
+                if (this.instabilityLevel > 0) {
+                    this.instabilityLevel += deltaTime * 0.5;
+                    
+                    // Make unstable blocks wobble more
+                    for (let i = this.blocks.length - 1; i >= 1; i--) {
+                        const block = this.blocks[i];
+                        if (!block.stable) {
+                            block.wobbleSpeed += (Math.random() - 0.5) * this.instabilityLevel;
+                            
+                            // Check if block fell off
+                            const blockBelow = this.blocks[i - 1];
+                            const offset = Math.abs(block.x - blockBelow.x);
+                            if (offset > blockBelow.width / 2 + block.width / 2 - 5) {
+                                // COLLAPSE!
+                                this.collapseStack();
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Random collapse chance increases with instability
+                    if (this.instabilityLevel > 2 && Math.random() < 0.02) {
+                        this.collapseStack();
+                        return;
+                    }
+                }
+
+                // Check if current block fell off screen (below ground)
+                if (this.currentBlock && this.currentBlock.falling && this.currentBlock.y > GROUND_Y + 200) {
+                    this.collapseStack();
+                    return;
+                }
+
+                // Update particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx * deltaTime * 60;
+                    p.y += p.vy * deltaTime * 60;
+                    p.vy += 0.3 * deltaTime * 60;
+                    p.life -= deltaTime * 2;
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update near-miss timer
+                if (this.nearMissTimer > 0) {
+                    this.nearMissTimer -= deltaTime;
+                }
+
+                // Update camera to follow stack and moving block
+                let targetY = 0;
+                if (this.currentBlock && !this.currentBlock.falling) {
+                    // Follow moving block
+                    targetY = this.currentBlock.y - CANVAS_HEIGHT / 2;
+                } else if (this.blocks.length > 0) {
+                    // Follow top of stack
+                    const topBlock = this.blocks[this.blocks.length - 1];
+                    targetY = topBlock.y - CANVAS_HEIGHT / 2;
+                }
+                this.cameraY += (targetY - this.cameraY) * 0.15;
+                
+                // Keep camera within bounds
+                this.cameraY = Math.max(0, Math.min(this.cameraY, GROUND_Y - CANVAS_HEIGHT / 2));
+            }
+
+            collapseStack() {
+                this.gameState = "FAILED";
+                this.bestStack = Math.max(this.bestStack, this.stackedCount);
+                
+                // Collapse particles
+                for (const block of this.blocks) {
+                    for (let i = 0; i < 10; i++) {
+                        this.particles.push({
+                            x: block.x,
+                            y: block.y,
+                            vx: (Math.random() - 0.5) * 8,
+                            vy: (Math.random() - 0.5) * 8,
+                            life: 1,
+                            color: '#FF4444'
+                        });
+                    }
+                }
+            }
+
+            updateUI() {
+                blocksStackedDisplay.textContent = `Blocks: ${this.stackedCount} / ${GOAL_HEIGHT}`;
+                bestStackDisplay.textContent = `Best: ${this.bestStack}`;
+                attemptsDisplay.textContent = `Attempts: ${this.attempts}`;
+                
+                // Distance to goal (creates anticipation)
+                const remaining = GOAL_HEIGHT - this.stackedCount;
+                if (remaining <= 0) {
+                    distanceToGoalDisplay.textContent = "COMPLETE!";
+                    distanceToGoalDisplay.style.color = "#4CAF50";
+                } else if (remaining === 1) {
+                    distanceToGoalDisplay.textContent = "ONE MORE!";
+                    distanceToGoalDisplay.style.color = "#FFD700";
+                } else if (remaining <= 3) {
+                    distanceToGoalDisplay.textContent = `Only ${remaining} left!`;
+                    distanceToGoalDisplay.style.color = "#FF9800";
+                } else {
+                    distanceToGoalDisplay.textContent = `${remaining} to go`;
+                    distanceToGoalDisplay.style.color = "#4CAF50";
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                ctx.fillStyle = "#87CEEB";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                // Draw ground
+                ctx.fillStyle = "#654321";
+                ctx.fillRect(0, GROUND_Y + BLOCK_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+
+                ctx.save();
+                ctx.translate(0, -this.cameraY);
+
+                // Draw goal line
+                const goalY = GROUND_Y - (GOAL_HEIGHT * BLOCK_HEIGHT);
+                ctx.strokeStyle = "#FFD700";
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, goalY);
+                ctx.lineTo(CANVAS_WIDTH, goalY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw goal text
+                ctx.fillStyle = "#FFD700";
+                ctx.font = "bold 16px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("GOAL", CANVAS_WIDTH / 2, goalY - 10);
+
+                // Draw blocks
+                for (const block of this.blocks) {
+                    block.draw();
+                }
+
+                // Draw current block (moving or falling)
+                if (this.currentBlock) {
+                    this.currentBlock.draw();
+                }
+
+                // Draw particles
+                for (const p of this.particles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                ctx.restore();
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("📦 THE PERFECT STACK", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80, "32px Arial", "white");
+                    this.drawText("Click to drop blocks at the perfect moment", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20, "18px Arial", "#FFD700");
+                    this.drawText("Stack 10 blocks to reach the goal!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20, "16px Arial", "white");
+                    this.drawText("Your timing controls everything!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50, "14px Arial", "#888");
+                    this.drawText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, "24px Arial", "#4CAF50");
+                } else if (this.gameState === "FAILED") {
+                    // Loss chasing messages
+                    let message = "Stack Collapsed!";
+                    let subMessage = "Press R to try again";
+                    
+                    if (this.stackedCount >= GOAL_HEIGHT - 2) {
+                        message = "SO CLOSE!";
+                        subMessage = `You had ${this.stackedCount} blocks! Just ${GOAL_HEIGHT - this.stackedCount} more!`;
+                    } else if (this.stackedCount >= GOAL_HEIGHT - 3) {
+                        message = "Almost There!";
+                        subMessage = `You were ${GOAL_HEIGHT - this.stackedCount} blocks away!`;
+                    } else if (this.bestStack >= GOAL_HEIGHT - 2) {
+                        message = "You Can Do It!";
+                        subMessage = `Your best is ${this.bestStack} blocks! So close to ${GOAL_HEIGHT}!`;
+                    }
+                    
+                    this.drawText(message, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FF4444");
+                    this.drawText(subMessage, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "20px Arial", "white");
+                    this.drawText(`Blocks stacked: ${this.stackedCount} / ${GOAL_HEIGHT}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#888");
+                    this.drawText("Press R to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 PERFECT STACK! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "42px Arial", "#FFD700");
+                    this.drawText(`You stacked ${this.stackedCount} blocks!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
+                    this.drawText(`After ${this.attempts} attempts`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4CAF50");
+                }
+
+                // Draw near-miss overlay
+                if (this.nearMissTimer > 0) {
+                    ctx.fillStyle = `rgba(255, 215, 0, ${this.nearMissTimer / 2 * 0.3})`;
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    this.drawText("SO CLOSE!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "56px Arial", "#FFD700");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 2, y + 2);
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.dropBlock(); // Player thinks they control the timing
+            }
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.dropBlock();
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "FAILED" || game.gameState === "WON") {
+                    game.start();
+                }
+            }
+            if (event.key === " " || event.key === "Enter") {
+                if (game.gameState === "PLAYING") {
+                    game.dropBlock();
+                }
+            }
+        }
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

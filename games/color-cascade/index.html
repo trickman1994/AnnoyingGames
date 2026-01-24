@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Cascade - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #0a0a0a;
+            cursor: pointer;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 12px 18px;
+            border-radius: 15px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 10;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 10px 15px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">🌈 Color Cascade</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="800"></canvas>
+        <div id="stats">
+            <div id="progress" style="color: #4ECDC4; font-weight: bold; font-size: 18px;">Progress: 0%</div>
+            <div id="clicks" style="color: #FFD700; margin-top: 5px;">Clicks: 0</div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🌈 Color Cascade - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Make all squares the same color! Click falling balls to remove groups of squares.</p>
+                
+                <h3>Controls</h3>
+                <p>• <strong>Click/Tap</strong> falling balls to remove squares of that color</p>
+                <p>• <strong>Removed squares</strong> take the color of their neighbors</p>
+                <p>• <strong>Press R</strong> to restart</p>
+                
+                <h3>⚠️ The Challenge</h3>
+                <p>• Squares randomly change color every 10-20 seconds!</p>
+                <p>• You need to unify all colors before they change</p>
+                <p>• Strategy and timing matter!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const progressDisplay = document.getElementById("progress");
+        const clicksDisplay = document.getElementById("clicks");
+
+        // Responsive canvas setup
+        const BASE_WIDTH = 400;
+        const BASE_HEIGHT = 800;
+        const ASPECT_RATIO = BASE_WIDTH / BASE_HEIGHT;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+        let scale = 1;
+
+        function resizeCanvas() {
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
+            
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            let height = availableHeight;
+            let width = height * ASPECT_RATIO;
+            
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / ASPECT_RATIO;
+            }
+            
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = width / ASPECT_RATIO;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = height * ASPECT_RATIO;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+            scale = width / BASE_WIDTH;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                resizeCanvas();
+            });
+        } else {
+            resizeCanvas();
+        }
+        
+        setTimeout(resizeCanvas, 100);
+        
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Color palette
+        const COLORS = [
+            { name: 'red', color: '#FF6B6B', light: '#FF6B6B' },
+            { name: 'orange', color: '#FFA502', light: '#FFA502' },
+            { name: 'yellow', color: '#FFD700', light: '#FFD700' },
+            { name: 'green', color: '#4ECDC4', light: '#4ECDC4' },
+            { name: 'blue', color: '#5352ed', light: '#5352ed' },
+            { name: 'purple', color: '#a55eea', light: '#a55eea' },
+            { name: 'pink', color: '#ff6b9d', light: '#ff6b9d' },
+            { name: 'cyan', color: '#00d2d3', light: '#00d2d3' }
+        ];
+
+        class GridSquare {
+            constructor(x, y, colorIndex) {
+                this.x = x;
+                this.y = y;
+                this.colorIndex = colorIndex;
+                this.lastChangeTime = Date.now();
+                this.nextChangeTime = Date.now() + (10 + Math.random() * 10) * 1000; // 10-20 seconds
+                this.locked = false; // Locked squares don't change randomly
+                this.pulse = Math.random() * Math.PI * 2;
+            }
+
+            draw(size) {
+                const color = COLORS[this.colorIndex];
+                const pulseSize = size + Math.sin(this.pulse) * 2;
+                
+                ctx.save();
+                ctx.translate(this.x + size / 2, this.y + size / 2);
+                
+                // Glow effect
+                if (this.locked) {
+                    const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulseSize / 2);
+                    glowGradient.addColorStop(0, `${color.light}80`);
+                    glowGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glowGradient;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, pulseSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Main shape - rounded square
+                const gradient = ctx.createLinearGradient(-pulseSize / 2, -pulseSize / 2, pulseSize / 2, pulseSize / 2);
+                gradient.addColorStop(0, color.light);
+                gradient.addColorStop(0.5, color.color);
+                gradient.addColorStop(1, color.color);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(-pulseSize / 2, -pulseSize / 2, pulseSize, pulseSize, size * 0.2);
+                ctx.fill();
+                
+                // Highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+                ctx.beginPath();
+                ctx.roundRect(-pulseSize / 2, -pulseSize / 2, pulseSize, pulseSize * 0.4, size * 0.2);
+                ctx.fill();
+                
+                // Border
+                ctx.strokeStyle = this.locked ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                ctx.lineWidth = this.locked ? 2 : 1;
+                ctx.beginPath();
+                ctx.roundRect(-pulseSize / 2, -pulseSize / 2, pulseSize, pulseSize, size * 0.2);
+                ctx.stroke();
+                
+                ctx.restore();
+                
+                // Update pulse
+                this.pulse += 0.05;
+            }
+
+            shouldChange() {
+                return !this.locked && Date.now() >= this.nextChangeTime;
+            }
+
+            changeColor() {
+                if (this.locked) return;
+                this.colorIndex = Math.floor(Math.random() * COLORS.length);
+                this.lastChangeTime = Date.now();
+                this.nextChangeTime = Date.now() + (10 + Math.random() * 10) * 1000;
+            }
+
+            lock() {
+                this.locked = true;
+            }
+        }
+
+        class FallingBall {
+            constructor(x, colorIndex) {
+                this.x = x;
+                this.y = -50;
+                this.colorIndex = colorIndex;
+                this.size = 35 + Math.random() * 15;
+                this.speed = 1.5 + Math.random() * 2;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                this.pulse = Math.random() * Math.PI * 2;
+                this.glowIntensity = 0.8;
+            }
+
+            update(deltaTime) {
+                this.y += this.speed * deltaTime * 60;
+                this.rotation += this.rotationSpeed * deltaTime * 60;
+                this.pulse += 0.15 * deltaTime * 60;
+            }
+
+            draw() {
+                const color = COLORS[this.colorIndex];
+                const pulseSize = this.size + Math.sin(this.pulse) * 3;
+                const glowSize = pulseSize + this.glowIntensity * 20;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Outer glow
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+                gradient.addColorStop(0, `${color.light}${Math.floor(this.glowIntensity * 200).toString(16).padStart(2, '0')}`);
+                gradient.addColorStop(0.3, `${color.light}${Math.floor(this.glowIntensity * 100).toString(16).padStart(2, '0')}`);
+                gradient.addColorStop(0.6, `${color.light}${Math.floor(this.glowIntensity * 50).toString(16).padStart(2, '0')}`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.beginPath();
+                ctx.ellipse(0, pulseSize / 2 + 8, pulseSize * 0.9, pulseSize * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Main ball
+                const ballGradient = ctx.createLinearGradient(-pulseSize / 2, -pulseSize / 2, pulseSize / 2, pulseSize / 2);
+                ballGradient.addColorStop(0, color.light);
+                ballGradient.addColorStop(0.5, color.color);
+                ballGradient.addColorStop(1, color.color);
+                ctx.fillStyle = ballGradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, pulseSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.beginPath();
+                ctx.ellipse(-pulseSize / 6, -pulseSize / 6, pulseSize / 4, pulseSize / 6, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Outline
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, pulseSize / 2, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            checkHit(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return Math.sqrt(dx * dx + dy * dy) < this.size / 2;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = "START";
+                this.grid = [];
+                this.gridSize = 10; // 10x10 grid - bigger squares
+                this.squareSize = 0; // Will be calculated
+                this.fallingBalls = [];
+                this.clicks = 0;
+                this.spawnTimer = 0;
+                this.spawnInterval = 1.5;
+                this.initGrid();
+            }
+
+            initGrid() {
+                // Calculate square size to fill entire canvas
+                this.squareSize = Math.min(CANVAS_WIDTH / this.gridSize, CANVAS_HEIGHT / this.gridSize);
+                
+                this.grid = [];
+                for (let y = 0; y < this.gridSize; y++) {
+                    this.grid[y] = [];
+                    for (let x = 0; x < this.gridSize; x++) {
+                        const colorIndex = Math.floor(Math.random() * COLORS.length);
+                        // Center the grid
+                        const offsetX = (CANVAS_WIDTH - (this.gridSize * this.squareSize)) / 2;
+                        const offsetY = (CANVAS_HEIGHT - (this.gridSize * this.squareSize)) / 2;
+                        this.grid[y][x] = new GridSquare(
+                            offsetX + x * this.squareSize,
+                            offsetY + y * this.squareSize,
+                            colorIndex
+                        );
+                    }
+                }
+            }
+
+            spawnBall() {
+                const x = 30 + Math.random() * (CANVAS_WIDTH - 60);
+                const colorIndex = Math.floor(Math.random() * COLORS.length);
+                this.fallingBalls.push(new FallingBall(x, colorIndex));
+            }
+
+            removeColorGroup(colorIndex) {
+                // Find all squares of this color using flood fill
+                const toRemove = [];
+                const visited = new Set();
+                
+                // Start from a random square of this color
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        if (this.grid[y][x].colorIndex === colorIndex && !visited.has(`${x},${y}`)) {
+                            // Flood fill to find connected group
+                            const group = [];
+                            const stack = [[x, y]];
+                            
+                            while (stack.length > 0) {
+                                const [cx, cy] = stack.pop();
+                                const key = `${cx},${cy}`;
+                                
+                                if (visited.has(key)) continue;
+                                if (cx < 0 || cx >= this.gridSize || cy < 0 || cy >= this.gridSize) continue;
+                                if (this.grid[cy][cx].colorIndex !== colorIndex) continue;
+                                
+                                visited.add(key);
+                                group.push([cx, cy]);
+                                
+                                // Check neighbors
+                                stack.push([cx + 1, cy]);
+                                stack.push([cx - 1, cy]);
+                                stack.push([cx, cy + 1]);
+                                stack.push([cx, cy - 1]);
+                            }
+                            
+                            if (group.length > 0) {
+                                toRemove.push(...group);
+                            }
+                        }
+                    }
+                }
+                
+                // Remove squares and replace with neighbor color
+                for (const [x, y] of toRemove) {
+                    // Find a neighbor color
+                    let neighborColor = colorIndex;
+                    const neighbors = [
+                        [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]
+                    ];
+                    
+                    for (const [nx, ny] of neighbors) {
+                        if (nx >= 0 && nx < this.gridSize && ny >= 0 && ny < this.gridSize) {
+                            if (this.grid[ny][nx].colorIndex !== colorIndex) {
+                                neighborColor = this.grid[ny][nx].colorIndex;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If no different neighbor, pick random
+                    if (neighborColor === colorIndex) {
+                        neighborColor = Math.floor(Math.random() * COLORS.length);
+                    }
+                    
+                    this.grid[y][x].colorIndex = neighborColor;
+                    this.grid[y][x].lastChangeTime = Date.now();
+                    this.grid[y][x].nextChangeTime = Date.now() + (10 + Math.random() * 10) * 1000;
+                    this.grid[y][x].lock(); // Lock squares changed by ball clicks
+                }
+            }
+
+            tryHit(x, y) {
+                // Find clicked ball
+                for (let i = this.fallingBalls.length - 1; i >= 0; i--) {
+                    const ball = this.fallingBalls[i];
+                    if (ball.checkHit(x, y)) {
+                        // Remove color group
+                        this.removeColorGroup(ball.colorIndex);
+                        this.fallingBalls.splice(i, 1);
+                        this.clicks++;
+                        this.updateUI();
+                        this.checkWin();
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            checkWin() {
+                // Check if all squares are the same color
+                const firstColor = this.grid[0][0].colorIndex;
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        if (this.grid[y][x].colorIndex !== firstColor) {
+                            return false;
+                        }
+                    }
+                }
+                this.gameState = "WON";
+            }
+
+            getProgress() {
+                // Count how many squares are the same color as the first one
+                const firstColor = this.grid[0][0].colorIndex;
+                let sameColor = 0;
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        if (this.grid[y][x].colorIndex === firstColor) {
+                            sameColor++;
+                        }
+                    }
+                }
+                return (sameColor / (this.gridSize * this.gridSize)) * 100;
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+
+                this.spawnTimer += deltaTime;
+                if (this.spawnTimer >= this.spawnInterval) {
+                    this.spawnBall();
+                    this.spawnTimer = 0;
+                }
+
+                // Update falling balls
+                for (let i = this.fallingBalls.length - 1; i >= 0; i--) {
+                    const ball = this.fallingBalls[i];
+                    ball.update(deltaTime);
+                    
+                    if (ball.y > CANVAS_HEIGHT + 100) {
+                        this.fallingBalls.splice(i, 1);
+                    }
+                }
+
+                // Update grid - random color changes
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        const square = this.grid[y][x];
+                        if (square.shouldChange()) {
+                            square.changeColor();
+                        }
+                    }
+                }
+
+                this.updateUI();
+            }
+
+            updateUI() {
+                const progress = this.getProgress();
+                progressDisplay.textContent = `Progress: ${progress.toFixed(1)}%`;
+                clicksDisplay.textContent = `Clicks: ${this.clicks}`;
+            }
+
+            draw() {
+                // Clear canvas with gradient background
+                const bgGradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                bgGradient.addColorStop(0, "#0a0a0a");
+                bgGradient.addColorStop(0.5, "#1a1a2e");
+                bgGradient.addColorStop(1, "#16213e");
+                ctx.fillStyle = bgGradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Draw grid
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        this.grid[y][x].draw(this.squareSize);
+                    }
+                }
+
+                // Draw falling balls
+                for (const ball of this.fallingBalls) {
+                    ball.draw();
+                }
+
+                // Draw messages
+                if (this.gameState === "START") {
+                    this.drawText("🌈 COLOR CASCADE", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100, "36px Arial", "white");
+                    this.drawText("Click balls to unify colors!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, "20px Arial", "#FFD700");
+                    this.drawText("Make all squares the same color", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "18px Arial", "#4ECDC4");
+                    this.drawText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, "24px Arial", "#FFD700");
+                } else if (this.gameState === "WON") {
+                    this.drawText("🎉 PERFECT! 🎉", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60, "48px Arial", "#FFD700");
+                    this.drawText(`All colors unified!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, "24px Arial", "white");
+                    this.drawText(`Clicks: ${this.clicks}`, CANVAS_HEIGHT / 2, CANVAS_HEIGHT / 2 + 40, "18px Arial", "#888");
+                    this.drawText("Press R to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80, "18px Arial", "#4ECDC4");
+                }
+            }
+
+            drawText(text, x, y, font, color) {
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillText(text, x + 3, y + 3);
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Add roundRect polyfill for older browsers
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+
+        // Initialize game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        // Game loop
+        function gameLoop() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function getCanvasPos(event) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.clientX || (event.changedTouches && event.changedTouches[0].clientX);
+            const clientY = event.clientY || (event.changedTouches && event.changedTouches[0].clientY);
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            
+            const pos = getCanvasPos(event);
+            
+            if (game.gameState === "START") {
+                game.gameState = "PLAYING";
+            } else if (game.gameState === "PLAYING") {
+                game.tryHit(pos.x, pos.y);
+            }
+        }
+
+        function onTouchEnd(event) {
+            event.preventDefault();
+            const pos = getCanvasPos(event);
+            
+            if (game.gameState === "START") {
+                game.gameState = "PLAYING";
+            } else if (game.gameState === "PLAYING") {
+                game.tryHit(pos.x, pos.y);
+            }
+        }
+
+        function onKeyDown(event) {
+            if (event.key === "r" || event.key === "R") {
+                if (game.gameState === "WON") {
+                    game.gameState = "START";
+                    game.initGrid();
+                    game.fallingBalls = [];
+                    game.clicks = 0;
+                    game.spawnTimer = 0;
+                }
+            }
+        }
+
+        // Info modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // Attach event listeners
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        document.addEventListener("keydown", onKeyDown);
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
