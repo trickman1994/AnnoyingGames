@@ -495,7 +495,7 @@
         class FallingCard {
             constructor(x, type) {
                 this.x = x;
-                this.y = -100;
+                this.y = 470; // Start below collected counters box (380 + 90 box height)
                 this.type = type;
                 this.revealed = false;
                 this.width = 80;
@@ -545,14 +545,44 @@
                 const cx = this.x + this.width / 2;
                 const cy = this.y + this.height / 2;
                 
-                // Particles
-                for (let i = 0; i < 30; i++) {
+                // Reduced particles - still impressive but not overwhelming
+                for (let i = 0; i < 40; i++) {
                     game.particles.push(new Particle(cx, cy, this.type.color));
                 }
                 
-                // Screen flash
-                game.screenFlash = { color: this.type.color, life: 0.3 };
+                // Reduced particle rings
+                for (let ring = 0; ring < 2; ring++) {
+                    const ringRadius = (ring + 1) * 40;
+                    const particlesPerRing = 15;
+                    for (let i = 0; i < particlesPerRing; i++) {
+                        const angle = (i / particlesPerRing) * Math.PI * 2;
+                        const px = cx + Math.cos(angle) * ringRadius;
+                        const py = cy + Math.sin(angle) * ringRadius;
+                        game.particles.push(new Particle(px, py, this.type.color));
+                    }
+                }
+                
+                // Reduced screen flash
+                game.screenFlash = { 
+                    color: this.type.color, 
+                    life: 0.4,
+                    intensity: 0.7,
+                    layers: 1
+                };
                 game.screenShake = 0.3;
+                
+                // Reduced light streaks
+                for (let i = 0; i < 4; i++) {
+                    const angle = (i / 4) * Math.PI * 2;
+                    game.lightStreaks.push({
+                        x: cx,
+                        y: cy,
+                        angle: angle,
+                        length: 150 + Math.random() * 50,
+                        life: 0.3,
+                        color: this.type.color
+                    });
+                }
             }
 
             update(deltaTime) {
@@ -579,36 +609,64 @@
                 }
                 
                 if (!this.revealed) {
-                    // Card back
-                    ctx.fillStyle = this.type.backColor;
+                    // Enhanced card back with glow
+                    const cardGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, this.width);
+                    cardGlow.addColorStop(0, this.type.color + "40");
+                    cardGlow.addColorStop(1, "transparent");
+                    ctx.fillStyle = cardGlow;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Card back with gradient
+                    const backGradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
+                    backGradient.addColorStop(0, this.type.backColor);
+                    backGradient.addColorStop(0.5, this.type.color + "80");
+                    backGradient.addColorStop(1, this.type.backColor);
+                    ctx.fillStyle = backGradient;
                     ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    
+                    // Enhanced border with glow
                     ctx.strokeStyle = this.type.color;
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 4;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.type.color;
                     ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.shadowBlur = 0;
+                    
+                    // Symbol with glow
                     ctx.font = "30px Arial";
                     ctx.textAlign = "center";
                     ctx.fillStyle = this.type.color;
-                    ctx.globalAlpha = 0.5;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = this.type.color;
+                    ctx.globalAlpha = 0.8;
                     ctx.fillText(this.type.symbol, 0, -15);
                     ctx.globalAlpha = 1.0;
-                    // Show multiplier on card back
-                    ctx.font = "bold 24px Arial";
+                    ctx.shadowBlur = 0;
+                    
+                    // Enhanced multiplier display
+                    ctx.font = "bold 28px Arial";
                     ctx.fillStyle = "#FFD700";
                     ctx.strokeStyle = "#000000";
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = "#FFD700";
                     const multText = `x${this.multiplier}`;
                     ctx.strokeText(multText, 0, 15);
                     ctx.fillText(multText, 0, 15);
+                    ctx.shadowBlur = 0;
                 } else {
-                    // MUCH BIGGER GLOW - 5 layers with larger size
+                    // Reduced but still impressive glow
                     if (this.glow > 0) {
+                        const pulse = Math.sin(Date.now() / 50) * 0.15 + 0.85;
                         for (let i = 0; i < 5; i++) {
-                            const size = this.width * (1 + i * 1.2) * this.glow * 1.5; // Bigger glow
-                            const alpha = (this.glow * 0.6) / (i + 1); // More intense
+                            const size = this.width * (1 + i * 1.5) * this.glow * 1.8;
+                            const alpha = (this.glow * 0.7 * pulse) / (i + 1);
                             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
-                            const hexAlpha = Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                            const hexAlpha = Math.floor(Math.min(255, alpha * 255)).toString(16).padStart(2, '0');
                             grad.addColorStop(0, this.type.color + hexAlpha);
-                            grad.addColorStop(0.3, this.type.color + Math.floor(alpha * 0.5 * 255).toString(16).padStart(2, '0'));
+                            grad.addColorStop(0.3, this.type.color + Math.floor(alpha * 0.6 * 255).toString(16).padStart(2, '0'));
                             grad.addColorStop(1, 'transparent');
                             ctx.fillStyle = grad;
                             ctx.beginPath();
@@ -616,31 +674,55 @@
                             ctx.fill();
                         }
                         
-                        // Pulsing outer ring
-                        const pulseSize = this.width * 4 * this.glow;
-                        const pulseAlpha = Math.sin(Date.now() / 50) * 0.3 + 0.3;
-                        const pulseGrad = ctx.createRadialGradient(0, 0, this.width, 0, 0, pulseSize);
-                        pulseGrad.addColorStop(0, this.type.color + Math.floor(pulseAlpha * 255).toString(16).padStart(2, '0'));
-                        pulseGrad.addColorStop(1, 'transparent');
-                        ctx.fillStyle = pulseGrad;
-                        ctx.beginPath();
-                        ctx.arc(0, 0, pulseSize, 0, Math.PI * 2);
-                        ctx.fill();
+                        // Reduced pulsing rings
+                        for (let ring = 0; ring < 3; ring++) {
+                            const ringPhase = (Date.now() / 60 + ring * 0.8) % (Math.PI * 2);
+                            const pulseSize = this.width * (2 + Math.sin(ringPhase) * 1) * this.glow;
+                            const pulseAlpha = (Math.sin(ringPhase) * 0.4 + 0.4) * this.glow * 0.4;
+                            const pulseGrad = ctx.createRadialGradient(0, 0, this.width, 0, 0, pulseSize);
+                            const ringAlpha = Math.floor(pulseAlpha * 255).toString(16).padStart(2, '0');
+                            pulseGrad.addColorStop(0, this.type.color + ringAlpha);
+                            pulseGrad.addColorStop(0.5, this.type.color + Math.floor(pulseAlpha * 0.3 * 255).toString(16).padStart(2, '0'));
+                            pulseGrad.addColorStop(1, 'transparent');
+                            ctx.fillStyle = pulseGrad;
+                            ctx.beginPath();
+                            ctx.arc(0, 0, pulseSize, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
                     }
                     
-                    // Card face
+                    // Enhanced card face with shine effect
                     const gradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
                     gradient.addColorStop(0, this.type.color);
+                    gradient.addColorStop(0.5, this.type.color + "CC");
                     gradient.addColorStop(1, this.type.backColor);
                     ctx.fillStyle = gradient;
                     ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    
+                    // Shine overlay
+                    const shineGradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, -this.width / 2, this.height / 2);
+                    shineGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
+                    shineGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
+                    shineGradient.addColorStop(1, "transparent");
+                    ctx.fillStyle = shineGradient;
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    
+                    // Enhanced border
                     ctx.strokeStyle = "#FFFFFF";
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = "#FFFFFF";
                     ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
-                    ctx.font = "40px Arial";
+                    ctx.shadowBlur = 0;
+                    
+                    // Enhanced symbol
+                    ctx.font = "bold 40px Arial";
                     ctx.textAlign = "center";
                     ctx.fillStyle = "#FFFFFF";
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = this.type.color;
                     ctx.fillText(this.type.symbol, 0, -20);
+                    ctx.shadowBlur = 0;
                     ctx.font = "bold 20px Arial";
                     // Show stacked values
                     if (this.value.damage > 0) {
@@ -667,22 +749,33 @@
             }
         }
 
-        // Boss
+        // Boss - EXTREMELY REALISTIC AND IMPRESSIVE
         class Boss {
             constructor() {
-                this.maxHealth = 1667; // Reduced by 3x (5000/3)
+                this.maxHealth = 2167; // Increased by 30% (1667 * 1.3)
                 this.health = this.maxHealth;
                 this.x = CANVAS_WIDTH / 2;
                 this.y = 150; // Moved lower so health bar is fully visible
-                this.size = 120;
+                this.size = 140; // Slightly bigger for more detail
                 this.animationTime = 0;
                 this.attackTimer = 0;
                 this.attackCooldown = 3.0;
+                this.hornAngle = 0; // For horn animation
             }
 
             update(deltaTime) {
                 this.animationTime += deltaTime;
                 this.attackTimer += deltaTime;
+                this.hornAngle += deltaTime * 0.5; // Slow horn sway
+                
+                // Spawn ambient particles around boss
+                if (Math.random() < 0.1) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = this.size * (0.8 + Math.random() * 0.4);
+                    const px = this.x + Math.cos(angle) * dist;
+                    const py = this.y + Math.sin(angle) * dist;
+                    game.particles.push(new Particle(px, py, "#8B0000"));
+                }
                 
                 if (this.attackTimer >= this.attackCooldown && game.gameState === "PLAYING") {
                     this.attack();
@@ -708,41 +801,707 @@
             draw() {
                 ctx.save();
                 
-                // Shadow
-                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-                ctx.beginPath();
-                ctx.ellipse(this.x, this.y + this.size + 20, this.size * 0.8, this.size * 0.3, 0, 0, Math.PI * 2);
-                ctx.fill();
+                // ULTRA REALISTIC MULTIPLE LAYERED SHADOWS with soft edges
+                for (let i = 0; i < 8; i++) {
+                    const shadowSize = this.size * (0.9 - i * 0.08);
+                    const shadowY = this.y + this.size + 15 + i * 3;
+                    const shadowAlpha = (0.7 - i * 0.08) * (0.8 + Math.sin(this.animationTime * 2) * 0.2);
+                    const shadowBlur = 5 + i * 2;
+                    
+                    ctx.shadowBlur = shadowBlur;
+                    ctx.shadowColor = `rgba(0, 0, 0, ${shadowAlpha})`;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                    ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha * 0.5})`;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, shadowY, shadowSize, shadowSize * 0.25, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
                 
-                // Glow
-                const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
-                glowGradient.addColorStop(0, `rgba(139, 0, 0, ${0.3 + Math.sin(this.animationTime * 3) * 0.2})`);
-                glowGradient.addColorStop(1, 'transparent');
-                ctx.fillStyle = glowGradient;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
-                ctx.fill();
+                // ULTRA REALISTIC MULTIPLE GLOW LAYERS with atmospheric effects
+                for (let i = 0; i < 12; i++) {
+                    const glowSize = this.size * (1.2 + i * 0.25);
+                    const glowIntensity = (0.5 - i * 0.04) * (0.7 + Math.sin(this.animationTime * 2.5 + i * 0.5) * 0.3);
+                    const pulse = Math.sin(this.animationTime * 3 + i * 0.3) * 0.15 + 0.85;
+                    const glowGradient = ctx.createRadialGradient(this.x, this.y - this.size * 0.2, 0, this.x, this.y, glowSize);
+                    const red = Math.max(50, 180 - i * 8);
+                    const green = Math.max(0, 20 - i * 2);
+                    const blue = 0;
+                    glowGradient.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${glowIntensity * pulse * 0.8})`);
+                    glowGradient.addColorStop(0.3, `rgba(${red}, ${green}, ${blue}, ${glowIntensity * pulse * 0.5})`);
+                    glowGradient.addColorStop(0.6, `rgba(${red}, ${green}, ${blue}, ${glowIntensity * pulse * 0.2})`);
+                    glowGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glowGradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 
                 ctx.translate(this.x, this.y);
+                const subtleRot = Math.sin(this.animationTime * 0.4) * 0.03;
+                ctx.rotate(subtleRot);
                 
-                // Body
-                const bodyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
-                bodyGradient.addColorStop(0, "#1a1a1a");
-                bodyGradient.addColorStop(1, "#000000");
-                ctx.fillStyle = bodyGradient;
+                // ULTRA REALISTIC HORNS - Curved, detailed, with texture
+                const hornBaseY = -this.size * 0.75;
+                const hornBaseX = this.size * 0.35;
+                const hornLength = this.size * 0.75;
+                const hornSway = Math.sin(this.hornAngle) * 0.08;
+                const hornCurve = 0.15;
+                
+                // Left horn - curved and detailed
+                ctx.save();
+                ctx.translate(-hornBaseX, hornBaseY);
+                ctx.rotate(-0.4 + hornSway);
+                
+                // Horn base with realistic texture
+                const hornBaseGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.12);
+                hornBaseGradient.addColorStop(0, "#4a2a2a");
+                hornBaseGradient.addColorStop(0.5, "#2a1a1a");
+                hornBaseGradient.addColorStop(1, "#1a0a0a");
+                ctx.fillStyle = hornBaseGradient;
                 ctx.beginPath();
-                ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                ctx.arc(0, 0, this.size * 0.12, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Eyes
-                const eyeGlow = Math.sin(this.animationTime * 4) * 0.5 + 0.5;
-                ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
+                // Curved horn body with multiple segments
+                for (let seg = 0; seg < 8; seg++) {
+                    const segProgress = seg / 8;
+                    const segY = -hornLength * segProgress;
+                    const segWidth = this.size * 0.08 * (1 - segProgress * 0.6);
+                    const segCurve = hornCurve * segProgress;
+                    
+                    const segGradient = ctx.createLinearGradient(-segWidth, segY, segWidth, segY);
+                    segGradient.addColorStop(0, "#3a2a2a");
+                    segGradient.addColorStop(0.3, "#2a1a1a");
+                    segGradient.addColorStop(0.7, "#1a0a0a");
+                    segGradient.addColorStop(1, "#0a0000");
+                    ctx.fillStyle = segGradient;
+                    ctx.beginPath();
+                    ctx.ellipse(segCurve * this.size * 0.1, segY, segWidth, segWidth * 0.6, segProgress * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Segment highlight
+                    ctx.fillStyle = `rgba(150, 80, 80, ${0.2 * (1 - segProgress)})`;
+                    ctx.beginPath();
+                    ctx.ellipse(segCurve * this.size * 0.1 - segWidth * 0.3, segY, segWidth * 0.4, segWidth * 0.3, segProgress * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Horn rings/texture
+                ctx.strokeStyle = "rgba(50, 25, 25, 0.6)";
+                ctx.lineWidth = 1.5;
+                for (let ring = 1; ring < 6; ring++) {
+                    const ringY = -hornLength * (ring / 6);
+                    const ringWidth = this.size * 0.08 * (1 - ring / 6 * 0.6);
+                    ctx.beginPath();
+                    ctx.ellipse(hornCurve * this.size * 0.1 * (ring / 6), ringY, ringWidth, ringWidth * 0.6, ring / 6 * 0.3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+                
+                // Right horn - curved and detailed
+                ctx.save();
+                ctx.translate(hornBaseX, hornBaseY);
+                ctx.rotate(0.4 - hornSway);
+                
+                // Horn base
+                ctx.fillStyle = hornBaseGradient;
                 ctx.beginPath();
-                ctx.arc(-this.size * 0.3, -this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+                ctx.arc(0, 0, this.size * 0.12, 0, Math.PI * 2);
                 ctx.fill();
+                
+                // Curved horn body
+                for (let seg = 0; seg < 8; seg++) {
+                    const segProgress = seg / 8;
+                    const segY = -hornLength * segProgress;
+                    const segWidth = this.size * 0.08 * (1 - segProgress * 0.6);
+                    const segCurve = -hornCurve * segProgress;
+                    
+                    const segGradient = ctx.createLinearGradient(-segWidth, segY, segWidth, segY);
+                    segGradient.addColorStop(0, "#3a2a2a");
+                    segGradient.addColorStop(0.3, "#2a1a1a");
+                    segGradient.addColorStop(0.7, "#1a0a0a");
+                    segGradient.addColorStop(1, "#0a0000");
+                    ctx.fillStyle = segGradient;
+                    ctx.beginPath();
+                    ctx.ellipse(segCurve * this.size * 0.1, segY, segWidth, segWidth * 0.6, -segProgress * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Segment highlight
+                    ctx.fillStyle = `rgba(150, 80, 80, ${0.2 * (1 - segProgress)})`;
+                    ctx.beginPath();
+                    ctx.ellipse(segCurve * this.size * 0.1 + segWidth * 0.3, segY, segWidth * 0.4, segWidth * 0.3, -segProgress * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Horn rings
+                ctx.strokeStyle = "rgba(50, 25, 25, 0.6)";
+                ctx.lineWidth = 1.5;
+                for (let ring = 1; ring < 6; ring++) {
+                    const ringY = -hornLength * (ring / 6);
+                    const ringWidth = this.size * 0.08 * (1 - ring / 6 * 0.6);
+                    ctx.beginPath();
+                    ctx.ellipse(-hornCurve * this.size * 0.1 * (ring / 6), ringY, ringWidth, ringWidth * 0.6, -ring / 6 * 0.3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+                
+                // ULTRA REALISTIC HEAD STRUCTURE - Not just a sphere, but a detailed head
+                // Head shape - more oval/realistic proportions
+                const headWidth = this.size;
+                const headHeight = this.size * 1.15;
+                
+                // OPTIMIZED REALISTIC OUTER GLOW - 12 layers for performance
+                for (let glowLayer = 0; glowLayer < 12; glowLayer++) {
+                    const glowSize = this.size * (1.02 + glowLayer * 0.1);
+                    const glowAlpha = (0.6 - glowLayer * 0.04) * (0.7 + Math.sin(this.animationTime * 2 + glowLayer * 0.2) * 0.3);
+                    const outerGlow = ctx.createRadialGradient(0, -this.size * 0.1, 0, 0, 0, glowSize);
+                    const red = Math.max(50, 180 - glowLayer * 8);
+                    const green = Math.max(0, 40 - glowLayer * 3);
+                    const blue = 0;
+                    outerGlow.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${glowAlpha})`);
+                    outerGlow.addColorStop(0.4, `rgba(${Math.max(30, red - 30)}, ${Math.max(0, green - 10)}, 0, ${glowAlpha * 0.6})`);
+                    outerGlow.addColorStop(0.7, `rgba(${Math.max(20, red - 50)}, ${Math.max(0, green - 20)}, 0, ${glowAlpha * 0.3})`);
+                    outerGlow.addColorStop(1, "transparent");
+                    ctx.fillStyle = outerGlow;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, glowSize, glowSize * 1.1, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // OPTIMIZED REALISTIC HEAD SHAPE - Smooth gradient with 15 stops
+                // Primary light from top-left
+                const mainBodyGradient = ctx.createRadialGradient(
+                    -this.size * 0.4, -this.size * 0.5, 0,
+                    0, this.size * 0.2, this.size * 1.2
+                );
+                // Smooth gradient with optimized stops
+                mainBodyGradient.addColorStop(0, "#8a6a6a"); // Brightest highlight
+                mainBodyGradient.addColorStop(0.08, "#7a5a5a");
+                mainBodyGradient.addColorStop(0.15, "#6a4a4a");
+                mainBodyGradient.addColorStop(0.25, "#5a3a3a"); // Bright highlight
+                mainBodyGradient.addColorStop(0.35, "#4a2a2a");
+                mainBodyGradient.addColorStop(0.45, "#3a2a2a"); // Mid highlight
+                mainBodyGradient.addColorStop(0.55, "#2a1a1a"); // Base
+                mainBodyGradient.addColorStop(0.65, "#1a0a0a");
+                mainBodyGradient.addColorStop(0.75, "#0a0000"); // Shadow
+                mainBodyGradient.addColorStop(0.85, "#050000");
+                mainBodyGradient.addColorStop(0.92, "#020000");
+                mainBodyGradient.addColorStop(1, "#000000"); // Darkest
+                ctx.fillStyle = mainBodyGradient;
                 ctx.beginPath();
-                ctx.arc(this.size * 0.3, -this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, headWidth, headHeight, 0, 0, Math.PI * 2);
                 ctx.fill();
+                
+                // Additional light sources for realistic multi-bounce lighting
+                // Fill light from bottom-right
+                const fillLightGradient = ctx.createRadialGradient(
+                    this.size * 0.3, this.size * 0.4, 0,
+                    0, 0, this.size * 0.9
+                );
+                fillLightGradient.addColorStop(0, "rgba(60, 30, 20, 0.2)");
+                fillLightGradient.addColorStop(0.5, "rgba(40, 20, 10, 0.1)");
+                fillLightGradient.addColorStop(1, "transparent");
+                ctx.fillStyle = fillLightGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth * 0.95, headHeight * 0.95, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Key light bounce from left
+                const bounceLightGradient = ctx.createLinearGradient(
+                    -this.size * 0.5, -this.size * 0.6,
+                    this.size * 0.2, this.size * 0.3
+                );
+                bounceLightGradient.addColorStop(0, "rgba(80, 50, 30, 0.15)");
+                bounceLightGradient.addColorStop(0.5, "rgba(50, 30, 15, 0.08)");
+                bounceLightGradient.addColorStop(1, "transparent");
+                ctx.fillStyle = bounceLightGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth * 0.85, headHeight * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // SUBSURFACE SCATTERING - Realistic skin translucency
+                const sssGradient = ctx.createRadialGradient(
+                    -this.size * 0.3, -this.size * 0.4, 0,
+                    0, 0, this.size * 0.8
+                );
+                sssGradient.addColorStop(0, "rgba(139, 50, 30, 0.15)");
+                sssGradient.addColorStop(0.5, "rgba(100, 30, 15, 0.1)");
+                sssGradient.addColorStop(1, "transparent");
+                ctx.fillStyle = sssGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth * 0.9, headHeight * 0.9, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Secondary light source from right (rim light)
+                const rimLightGradient = ctx.createLinearGradient(
+                    this.size * 0.6, -this.size * 0.8,
+                    this.size * 0.8, this.size * 0.8
+                );
+                rimLightGradient.addColorStop(0, "rgba(139, 50, 0, 0.5)");
+                rimLightGradient.addColorStop(0.5, "rgba(100, 30, 0, 0.3)");
+                rimLightGradient.addColorStop(1, "transparent");
+                ctx.fillStyle = rimLightGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth, headHeight, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // OPTIMIZED REALISTIC SKIN TEXTURE - Efficient but detailed
+                // Use pattern-based approach for better performance
+                // Layer 1: Large pores (optimized count)
+                ctx.fillStyle = "rgba(30, 10, 10, 0.4)";
+                for (let i = 0; i < 80; i++) {
+                    const angle = (i / 80) * Math.PI * 2;
+                    const dist = this.size * (0.15 + Math.random() * 0.75);
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist * 1.1;
+                    const poreSize = 1.5 + Math.random() * 2.5;
+                    ctx.beginPath();
+                    ctx.arc(x, y, poreSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Layer 2: Medium pores (optimized count)
+                ctx.fillStyle = "rgba(25, 8, 8, 0.35)";
+                for (let i = 0; i < 150; i++) {
+                    const angle = (i / 150) * Math.PI * 2;
+                    const dist = this.size * (0.2 + Math.random() * 0.7);
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist * 1.1;
+                    const poreSize = 0.8 + Math.random() * 1.5;
+                    ctx.beginPath();
+                    ctx.arc(x, y, poreSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Layer 3: Small pores (optimized count)
+                ctx.fillStyle = "rgba(20, 5, 5, 0.3)";
+                for (let i = 0; i < 250; i++) {
+                    const angle = (i / 250) * Math.PI * 2;
+                    const dist = this.size * (0.25 + Math.random() * 0.65);
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist * 1.1;
+                    const poreSize = 0.3 + Math.random() * 0.8;
+                    ctx.beginPath();
+                    ctx.arc(x, y, poreSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Skin bumps and irregularities (optimized)
+                for (let i = 0; i < 60; i++) {
+                    const angle = (i / 60) * Math.PI * 2;
+                    const dist = this.size * (0.3 + Math.random() * 0.6);
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist * 1.1;
+                    const bumpSize = 2 + Math.random() * 3;
+                    const bumpGradient = ctx.createRadialGradient(x, y, 0, x, y, bumpSize);
+                    bumpGradient.addColorStop(0, "rgba(40, 15, 15, 0.4)");
+                    bumpGradient.addColorStop(1, "transparent");
+                    ctx.fillStyle = bumpGradient;
+                    ctx.beginPath();
+                    ctx.arc(x, y, bumpSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Skin surface variations (optimized)
+                ctx.fillStyle = "rgba(25, 10, 10, 0.2)";
+                for (let i = 0; i < 100; i++) {
+                    const angle = (i / 100) * Math.PI * 2;
+                    const dist = this.size * (0.3 + Math.random() * 0.6);
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist * 1.1;
+                    const scaleSize = 3 + Math.random() * 4;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, scaleSize, scaleSize * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // OPTIMIZED REALISTIC WRINKLES AND FACIAL STRUCTURE
+                // Forehead wrinkles - optimized count
+                ctx.strokeStyle = "rgba(20, 5, 5, 0.5)";
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 10; i++) {
+                    const y = -this.size * 0.65 + i * this.size * 0.08;
+                    const wrinkleWidth = this.size * (0.35 + Math.random() * 0.1);
+                    const wrinkleHeight = this.size * (0.03 + Math.random() * 0.02);
+                    ctx.beginPath();
+                    ctx.ellipse(0, y, wrinkleWidth, wrinkleHeight, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // Micro-wrinkles on forehead (optimized)
+                ctx.strokeStyle = "rgba(15, 3, 3, 0.35)";
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 25; i++) {
+                    const y = -this.size * 0.7 + Math.random() * this.size * 0.3;
+                    const x = (Math.random() - 0.5) * this.size * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x - this.size * 0.15, y);
+                    ctx.lineTo(x + this.size * 0.15, y);
+                    ctx.stroke();
+                }
+                
+                // Cheek lines - detailed
+                ctx.strokeStyle = "rgba(20, 5, 5, 0.5)";
+                ctx.lineWidth = 1.5;
+                for (let side = -1; side <= 1; side += 2) {
+                    for (let i = 0; i < 5; i++) {
+                        const x = side * this.size * (0.25 + i * 0.08);
+                        const y = this.size * (0.05 + i * 0.12);
+                        const length = this.size * (0.08 + Math.random() * 0.05);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + side * length, y + this.size * 0.15);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Nasolabial folds
+                for (let side = -1; side <= 1; side += 2) {
+                    ctx.strokeStyle = "rgba(25, 8, 8, 0.6)";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(side * this.size * 0.2, -this.size * 0.1);
+                    ctx.quadraticCurveTo(side * this.size * 0.35, this.size * 0.2, side * this.size * 0.4, this.size * 0.4);
+                    ctx.stroke();
+                }
+                
+                // Brow ridge shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.beginPath();
+                ctx.ellipse(0, -this.size * 0.5, this.size * 0.6, this.size * 0.08, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Cheekbone highlights
+                for (let side = -1; side <= 1; side += 2) {
+                    const cheekGradient = ctx.createRadialGradient(
+                        side * this.size * 0.35, this.size * 0.15, 0,
+                        side * this.size * 0.35, this.size * 0.15, this.size * 0.2
+                    );
+                    cheekGradient.addColorStop(0, "rgba(80, 40, 30, 0.3)");
+                    cheekGradient.addColorStop(1, "transparent");
+                    ctx.fillStyle = cheekGradient;
+                    ctx.beginPath();
+                    ctx.arc(side * this.size * 0.35, this.size * 0.15, this.size * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Jawline definition
+                ctx.strokeStyle = "rgba(15, 5, 5, 0.4)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(0, this.size * 0.6, this.size * 0.5, this.size * 0.1, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Realistic rim lighting for 3D separation
+                const rimGradient = ctx.createLinearGradient(
+                    -this.size, -this.size * 1.1,
+                    this.size, this.size * 1.1
+                );
+                rimGradient.addColorStop(0, "rgba(139, 50, 0, 0.6)");
+                rimGradient.addColorStop(0.3, "transparent");
+                rimGradient.addColorStop(0.7, "transparent");
+                rimGradient.addColorStop(1, "rgba(139, 50, 0, 0.6)");
+                ctx.strokeStyle = rimGradient;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth, headHeight, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Additional depth with ambient occlusion
+                const aoGradient = ctx.createRadialGradient(
+                    this.size * 0.3, this.size * 0.4, 0,
+                    0, 0, this.size * 1.1
+                );
+                aoGradient.addColorStop(0, "transparent");
+                aoGradient.addColorStop(0.7, "transparent");
+                aoGradient.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+                ctx.fillStyle = aoGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, headWidth, headHeight, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // ULTRA REALISTIC EYES - Anatomically correct with depth
+                const eyeGlow = Math.sin(this.animationTime * 4) * 0.25 + 0.75;
+                const eyePulse = Math.sin(this.animationTime * 6) * 0.08 + 1;
+                const eyeBlink = Math.sin(this.animationTime * 8) > 0.95 ? 0.3 : 1; // Occasional blink
+                
+                // Left eye - ultra detailed
+                ctx.save();
+                ctx.translate(-this.size * 0.32, -this.size * 0.18);
+                
+                // Eye socket depth with realistic shadow
+                const socketGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 0.22);
+                socketGradient.addColorStop(0, "rgba(0, 0, 0, 0.9)");
+                socketGradient.addColorStop(0.6, "rgba(0, 0, 0, 0.7)");
+                socketGradient.addColorStop(1, "rgba(20, 5, 5, 0.5)");
+                ctx.fillStyle = socketGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.2, this.size * 0.16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye outer glow - multiple layers
+                for (let glowLayer = 0; glowLayer < 4; glowLayer++) {
+                    const glowSize = this.size * (0.22 + glowLayer * 0.08);
+                    const glowAlpha = (0.7 - glowLayer * 0.15) * eyeGlow;
+                    const eyeGlowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+                    eyeGlowGradient.addColorStop(0, `rgba(255, ${30 + glowLayer * 10}, 0, ${glowAlpha})`);
+                    eyeGlowGradient.addColorStop(0.4, `rgba(200, 0, 0, ${glowAlpha * 0.6})`);
+                    eyeGlowGradient.addColorStop(1, "transparent");
+                    ctx.fillStyle = eyeGlowGradient;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, glowSize, glowSize * 0.8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Eyelid/upper shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.beginPath();
+                ctx.ellipse(0, -this.size * 0.08, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI, 0, false);
+                ctx.fill();
+                
+                // Eye white (sclera) - if not blinking
+                if (eyeBlink > 0.5) {
+                    ctx.fillStyle = "rgba(200, 180, 180, 0.3)";
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 0.18 * eyePulse, this.size * 0.14 * eyePulse, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Iris with realistic texture
+                const irisSize = this.size * 0.14 * eyePulse * eyeBlink;
+                const irisGradient = ctx.createRadialGradient(0, -this.size * 0.03, 0, 0, 0, irisSize);
+                irisGradient.addColorStop(0, `rgba(255, ${80 + eyeGlow * 40}, 0, ${eyeGlow})`);
+                irisGradient.addColorStop(0.3, `rgba(255, 40, 0, ${eyeGlow})`);
+                irisGradient.addColorStop(0.6, `rgba(200, 0, 0, ${eyeGlow})`);
+                irisGradient.addColorStop(1, `rgba(139, 0, 0, ${eyeGlow})`);
+                ctx.fillStyle = irisGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, irisSize, irisSize * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Iris texture lines
+                ctx.strokeStyle = `rgba(139, 0, 0, ${eyeGlow * 0.6})`;
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(angle) * irisSize * 0.7, Math.sin(angle) * irisSize * 0.6);
+                    ctx.stroke();
+                }
+                
+                // Pupil
+                const pupilSize = this.size * 0.08 * eyePulse * eyeBlink;
+                ctx.fillStyle = `rgba(0, 0, 0, ${0.9 + eyeGlow * 0.1})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, pupilSize, pupilSize * 0.9, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Multiple eye highlights for realism
+                // Main highlight
+                ctx.fillStyle = `rgba(255, 255, 255, ${eyeGlow * 0.8})`;
+                ctx.beginPath();
+                ctx.ellipse(-this.size * 0.03, -this.size * 0.05, this.size * 0.06, this.size * 0.05, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Secondary highlight
+                ctx.fillStyle = `rgba(255, 255, 255, ${eyeGlow * 0.4})`;
+                ctx.beginPath();
+                ctx.ellipse(this.size * 0.04, -this.size * 0.04, this.size * 0.03, this.size * 0.025, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyelid lower shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.beginPath();
+                ctx.ellipse(0, this.size * 0.08, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI, 0, true);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Right eye - ultra detailed (same as left)
+                ctx.save();
+                ctx.translate(this.size * 0.32, -this.size * 0.18);
+                
+                // Eye socket
+                ctx.fillStyle = socketGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.2, this.size * 0.16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye outer glow
+                for (let glowLayer = 0; glowLayer < 4; glowLayer++) {
+                    const glowSize = this.size * (0.22 + glowLayer * 0.08);
+                    const glowAlpha = (0.7 - glowLayer * 0.15) * eyeGlow;
+                    const eyeGlowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+                    eyeGlowGradient.addColorStop(0, `rgba(255, ${30 + glowLayer * 10}, 0, ${glowAlpha})`);
+                    eyeGlowGradient.addColorStop(0.4, `rgba(200, 0, 0, ${glowAlpha * 0.6})`);
+                    eyeGlowGradient.addColorStop(1, "transparent");
+                    ctx.fillStyle = eyeGlowGradient;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, glowSize, glowSize * 0.8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Eyelid upper
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.beginPath();
+                ctx.ellipse(0, -this.size * 0.08, this.size * 0.18, this.size * 0.1, 0, 0, Math.PI, 0, false);
+                ctx.fill();
+                
+                // Eye white
+                if (eyeBlink > 0.5) {
+                    ctx.fillStyle = "rgba(200, 180, 180, 0.3)";
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 0.18 * eyePulse, this.size * 0.14 * eyePulse, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Iris
+                ctx.fillStyle = irisGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, irisSize, irisSize * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Iris texture
+                ctx.strokeStyle = `rgba(139, 0, 0, ${eyeGlow * 0.6})`;
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(angle) * irisSize * 0.7, Math.sin(angle) * irisSize * 0.6);
+                    ctx.stroke();
+                }
+                
+                // Pupil
+                ctx.fillStyle = `rgba(0, 0, 0, ${0.9 + eyeGlow * 0.1})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, pupilSize, pupilSize * 0.9, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Highlights
+                ctx.fillStyle = `rgba(255, 255, 255, ${eyeGlow * 0.8})`;
+                ctx.beginPath();
+                ctx.ellipse(-this.size * 0.03, -this.size * 0.05, this.size * 0.06, this.size * 0.05, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = `rgba(255, 255, 255, ${eyeGlow * 0.4})`;
+                ctx.beginPath();
+                ctx.ellipse(this.size * 0.04, -this.size * 0.04, this.size * 0.03, this.size * 0.025, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyelid lower
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.beginPath();
+                ctx.ellipse(0, this.size * 0.08, this.size * 0.18, this.size * 0.08, 0, 0, Math.PI, 0, true);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // ULTRA REALISTIC MOUTH - Detailed with depth
+                const mouthY = this.size * 0.35;
+                const mouthWidth = this.size * 0.25;
+                const mouthHeight = this.size * 0.18;
+                
+                // Mouth opening shadow/depth
+                const mouthShadowGradient = ctx.createRadialGradient(0, mouthY, 0, 0, mouthY, mouthWidth);
+                mouthShadowGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+                mouthShadowGradient.addColorStop(0.5, "rgba(0, 0, 0, 0.9)");
+                mouthShadowGradient.addColorStop(1, "rgba(20, 0, 0, 0.6)");
+                ctx.fillStyle = mouthShadowGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, mouthY, mouthWidth, mouthHeight, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Inner mouth glow
+                const innerMouthGlow = ctx.createRadialGradient(0, mouthY - mouthHeight * 0.3, 0, 0, mouthY, mouthWidth * 0.8);
+                innerMouthGlow.addColorStop(0, "rgba(139, 0, 0, 0.4)");
+                innerMouthGlow.addColorStop(1, "rgba(0, 0, 0, 0.8)");
+                ctx.fillStyle = innerMouthGlow;
+                ctx.beginPath();
+                ctx.ellipse(0, mouthY, mouthWidth * 0.9, mouthHeight * 0.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Realistic teeth - upper row
+                ctx.fillStyle = "rgba(240, 240, 230, 0.9)";
+                for (let i = -2; i <= 2; i++) {
+                    const toothX = i * this.size * 0.06;
+                    const toothY = mouthY - mouthHeight * 0.3;
+                    const toothWidth = this.size * 0.04;
+                    const toothHeight = this.size * 0.06;
+                    
+                    // Tooth shape
+                    ctx.beginPath();
+                    ctx.moveTo(toothX, toothY);
+                    ctx.lineTo(toothX - toothWidth * 0.5, toothY + toothHeight);
+                    ctx.lineTo(toothX + toothWidth * 0.5, toothY + toothHeight);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Tooth highlight
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                    ctx.beginPath();
+                    ctx.moveTo(toothX, toothY);
+                    ctx.lineTo(toothX - toothWidth * 0.3, toothY + toothHeight * 0.5);
+                    ctx.lineTo(toothX + toothWidth * 0.1, toothY + toothHeight * 0.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = "rgba(240, 240, 230, 0.9)";
+                }
+                
+                // Realistic teeth - lower row
+                for (let i = -2; i <= 2; i++) {
+                    const toothX = i * this.size * 0.06;
+                    const toothY = mouthY + mouthHeight * 0.3;
+                    const toothWidth = this.size * 0.04;
+                    const toothHeight = this.size * 0.06;
+                    
+                    // Tooth shape
+                    ctx.beginPath();
+                    ctx.moveTo(toothX, toothY);
+                    ctx.lineTo(toothX - toothWidth * 0.5, toothY - toothHeight);
+                    ctx.lineTo(toothX + toothWidth * 0.5, toothY - toothHeight);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Tooth highlight
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                    ctx.beginPath();
+                    ctx.moveTo(toothX, toothY);
+                    ctx.lineTo(toothX - toothWidth * 0.3, toothY - toothHeight * 0.5);
+                    ctx.lineTo(toothX + toothWidth * 0.1, toothY - toothHeight * 0.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = "rgba(240, 240, 230, 0.9)";
+                }
+                
+                // Tongue (if mouth open enough)
+                const tongueGradient = ctx.createRadialGradient(0, mouthY + mouthHeight * 0.2, 0, 0, mouthY, mouthWidth * 0.6);
+                tongueGradient.addColorStop(0, "rgba(139, 50, 50, 0.8)");
+                tongueGradient.addColorStop(1, "rgba(100, 20, 20, 0.6)");
+                ctx.fillStyle = tongueGradient;
+                ctx.beginPath();
+                ctx.ellipse(0, mouthY + mouthHeight * 0.1, mouthWidth * 0.5, mouthHeight * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Additional detail - cracks/veins
+                ctx.strokeStyle = "rgba(139, 0, 0, 0.4)";
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI * 2;
+                    const startDist = this.size * 0.6;
+                    const endDist = this.size * 0.9;
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        Math.cos(angle) * startDist,
+                        Math.sin(angle) * startDist
+                    );
+                    ctx.lineTo(
+                        Math.cos(angle) * endDist,
+                        Math.sin(angle) * endDist
+                    );
+                    ctx.stroke();
+                }
                 
                 ctx.restore();
                 
@@ -790,9 +1549,10 @@
                 this.mysteryCards = []; // 32 mystery cards on board
                 this.particles = [];
                 this.floatingTexts = [];
+                this.lightStreaks = []; // For hyperbolic card click effects
                 this.boss = new Boss();
-                this.playerHealth = 833; // Reduced by 3x (2500/3)
-                this.maxPlayerHealth = 833;
+                this.playerHealth = 1416; // Increased by 70% (833 * 1.7)
+                this.maxPlayerHealth = 1416;
                 this.applyEffectAnimation = null; // For showing applied values
                 this.spawnTimer = 0;
                 this.spawnInterval = 1.2;
@@ -810,9 +1570,9 @@
                 this.roundActive = false;
                 
                 // Batch system for falling cards
-                this.batchSize = 20; // Cards per batch
+                this.batchSize = 15; // Cards per batch
                 this.cardsInBatch = 0; // How many cards spawned in current batch
-                this.cardsPickedFromBatch = 0; // How many cards picked from current batch (max 10)
+                this.cardsPickedFromBatch = 0; // How many cards picked from current batch (max 7)
                 this.waitingForMysteryCard = false; // True when waiting for player to pick mystery card
                 this.batchMessage = null; // Message to show in middle area
                 
@@ -887,8 +1647,9 @@
                 this.fallingCards = [];
                 this.particles = [];
                 this.floatingTexts = [];
+                this.lightStreaks = [];
                 this.boss = new Boss();
-                this.playerHealth = 833;
+                this.playerHealth = 1416;
                 this.stackedDamage = 0;
                 this.stackedHealth = 0;
                 this.cardsOpened = 0;
@@ -966,7 +1727,7 @@
                 }
 
                 // Check falling cards (only if not at max picks)
-                if (this.cardsPickedFromBatch < 10) {
+                if (this.cardsPickedFromBatch < 7) {
                     for (let card of this.fallingCards) {
                         if (!card.revealed && card.checkHit(x, y)) {
                             card.reveal();
@@ -977,8 +1738,8 @@
                             this.stackedHealth += healthValue;
                             this.cardsPickedFromBatch++;
                             
-                            // If picked 10 cards, show message to select mystery card
-                            if (this.cardsPickedFromBatch >= 10) {
+                            // If picked 7 cards, show message to select mystery card
+                            if (this.cardsPickedFromBatch >= 7) {
                                 this.waitingForMysteryCard = true;
                                 this.batchMessage = "Select a closed card!";
                             }
@@ -1116,7 +1877,10 @@
                     }
 
                     if (this.screenFlash) {
-                        this.screenFlash.life -= deltaTime * 3;
+                        this.screenFlash.life -= deltaTime * 1.5; // Slower fade for hyperbolic effect
+                        if (this.screenFlash.intensity) {
+                            this.screenFlash.intensity = Math.max(0, this.screenFlash.intensity - deltaTime * 1.2);
+                        }
                         if (this.screenFlash.life <= 0) {
                             this.screenFlash = null;
                         }
@@ -1132,11 +1896,20 @@
 
                     if (this.screenShake > 0) {
                         this.screenShake -= deltaTime;
-                        this.shakeX = (Math.random() - 0.5) * 10 * this.screenShake;
-                        this.shakeY = (Math.random() - 0.5) * 10 * this.screenShake;
+                        // Reduced shake intensity
+                        this.shakeX = (Math.random() - 0.5) * 8 * this.screenShake;
+                        this.shakeY = (Math.random() - 0.5) * 8 * this.screenShake;
                     } else {
                         this.shakeX = 0;
                         this.shakeY = 0;
+                    }
+                    
+                    // Update light streaks
+                    for (let i = this.lightStreaks.length - 1; i >= 0; i--) {
+                        this.lightStreaks[i].life -= deltaTime * 2;
+                        if (this.lightStreaks[i].life <= 0) {
+                            this.lightStreaks.splice(i, 1);
+                        }
                     }
                 }
             }
@@ -1166,10 +1939,25 @@
                     ctx.fillRect(x - 100, CANVAS_HEIGHT - 200, 200, 200);
                 }
 
-                // Screen flash
+                // Reduced screen flash
                 if (this.screenFlash && this.screenFlash.life > 0) {
+                    const intensity = this.screenFlash.intensity || 1.0;
+                    
+                    // Single flash layer
                     ctx.fillStyle = this.screenFlash.color;
-                    ctx.globalAlpha = 0.4 * this.screenFlash.life;
+                    ctx.globalAlpha = 0.3 * this.screenFlash.life * intensity;
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    
+                    // Subtle radial flash from center
+                    const flashGradient = ctx.createRadialGradient(
+                        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 0,
+                        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6
+                    );
+                    flashGradient.addColorStop(0, this.screenFlash.color + Math.floor(150 * this.screenFlash.life * intensity).toString(16).padStart(2, '0'));
+                    flashGradient.addColorStop(0.5, this.screenFlash.color + Math.floor(80 * this.screenFlash.life * intensity).toString(16).padStart(2, '0'));
+                    flashGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = flashGradient;
+                    ctx.globalAlpha = 1.0;
                     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
                     ctx.globalAlpha = 1.0;
                 }
@@ -1206,6 +1994,27 @@
 
                     for (let particle of this.particles) {
                         particle.draw();
+                    }
+                    
+                    // Draw HYPERBOLIC light streaks
+                    for (let streak of this.lightStreaks) {
+                        ctx.save();
+                        ctx.translate(streak.x, streak.y);
+                        ctx.rotate(streak.angle);
+                        const streakGradient = ctx.createLinearGradient(0, 0, streak.length, 0);
+                        streakGradient.addColorStop(0, streak.color + Math.floor(255 * streak.life).toString(16).padStart(2, '0'));
+                        streakGradient.addColorStop(0.5, streak.color + Math.floor(180 * streak.life).toString(16).padStart(2, '0'));
+                        streakGradient.addColorStop(1, 'transparent');
+                        ctx.strokeStyle = streakGradient;
+                        ctx.lineWidth = 4 + streak.life * 6;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = streak.color;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(streak.length, 0);
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                        ctx.restore();
                     }
 
                     for (let text of this.floatingTexts) {
@@ -1254,7 +2063,7 @@
             drawBatchMessage() {
                 // Beautiful message in middle area (yellow space)
                 const centerX = CANVAS_WIDTH / 2;
-                const centerY = 500; // Middle of the card area
+                const centerY = 550; // Moved 10% lower (500 * 1.10)
                 const boxWidth = 350;
                 const boxHeight = 100;
                 
@@ -1339,11 +2148,11 @@
             }
 
             drawCollectedValues() {
-                // Nice visual display above mystery cards, below boss (moved lower to avoid boss overlap)
+                // Nice visual display - positioned clearly below boss, above yellow message box
                 const centerX = CANVAS_WIDTH / 2;
-                const centerY = 350; // Moved lower to avoid boss overlap
-                const boxWidth = 280; // Smaller to fit in middle area
-                const boxHeight = 90; // Slightly smaller to save space
+                const centerY = 441; // Moved 5% lower (420 * 1.05)
+                const boxWidth = 300; // Slightly wider for better visibility
+                const boxHeight = 100; // Taller for better visibility
                 
                 // Background with glow
                 const bgGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, boxWidth);
@@ -1468,7 +2277,7 @@
                 ctx.textAlign = "center";
                 ctx.fillStyle = "#FFD700";
                 const remainingCards = this.batchSize - this.cardsInBatch;
-                ctx.fillText(`Falling: ${remainingCards} left | Picked: ${this.cardsPickedFromBatch}/10 | Closed: ${this.cardsOpened}/25`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 90);
+                ctx.fillText(`Falling: ${remainingCards} left | Picked: ${this.cardsPickedFromBatch}/7 | Closed: ${this.cardsOpened}/25`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 90);
                 
                 if (this.allGoodRevealed) {
                     ctx.fillStyle = "#44FF44";
