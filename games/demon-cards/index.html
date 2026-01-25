@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Demon Cards - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: #000;
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #000;
+            cursor: pointer;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid #8B0000;
+        }
+        
+        .close-modal {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .modal-body h3 {
+            color: #FF6B6B;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">👹 Demon Cards</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="1200"></canvas>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>👹 Demon Cards - How to Play</h2>
+            <div class="modal-body">
+                <h3>Objective</h3>
+                <p>Defeat the Shadow Demon before it defeats you! Click cards as they fall to reveal their power. Use strategy and luck to survive.</p>
+                
+                <h3>Card Types</h3>
+                <p><strong>🔴 Red (Attack):</strong> Deal damage to the boss</p>
+                <p><strong>🔵 Blue (Defense):</strong> Shield yourself from damage</p>
+                <p><strong>🟣 Purple (Curse):</strong> Negative effects - be careful!</p>
+                <p><strong>🟢 Green (Heal):</strong> Restore your health</p>
+                <p><strong>🟡 Gold (Special):</strong> Powerful unique effects</p>
+                
+                <h3>Rules</h3>
+                <p>• Cards fall from top to bottom - click them to reveal</p>
+                <p>• Cards queue up - order matters for combos!</p>
+                <p>• The boss attacks periodically</p>
+                <p>• Defeat the boss before your health reaches 0</p>
+                
+                <h3>Strategy</h3>
+                <p>Choose cards wisely! The colored back hints at the category. Card order creates powerful combos!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Canvas dimensions
+        const BASE_WIDTH = 800;
+        const BASE_HEIGHT = 1200;
+        let CANVAS_WIDTH = BASE_WIDTH;
+        let CANVAS_HEIGHT = BASE_HEIGHT;
+
+        // Resize canvas
+        function resizeCanvas() {
+            const header = document.querySelector('.game-header');
+            const headerHeight = header ? header.offsetHeight + 10 : 70;
+            const padding = 5;
+            
+            const availableHeight = window.innerHeight - headerHeight - padding;
+            const availableWidth = window.innerWidth - padding * 2;
+            
+            const aspectRatio = BASE_WIDTH / BASE_HEIGHT;
+            let height = availableHeight;
+            let width = height * aspectRatio;
+            
+            if (width > availableWidth) {
+                width = availableWidth;
+                height = width / aspectRatio;
+            }
+            
+            if (width > BASE_WIDTH) {
+                width = BASE_WIDTH;
+                height = BASE_HEIGHT;
+            }
+            if (height > BASE_HEIGHT) {
+                height = BASE_HEIGHT;
+                width = BASE_WIDTH;
+            }
+            
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            CANVAS_WIDTH = BASE_WIDTH;
+            CANVAS_HEIGHT = BASE_HEIGHT;
+        }
+
+        resizeCanvas();
+        setTimeout(resizeCanvas, 100);
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeCanvas, 200);
+        });
+
+        // Modal functionality
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) {
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'block';
+            });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+        }
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                infoModal.style.display = 'none';
+            }
+        });
+
+        // ====================================
+        // GAME CODE
+        // ====================================
+
+        // Card Types
+        const CARD_TYPES = {
+            ATTACK: { name: "Attack", color: "#FF4444", backColor: "#8B0000", symbol: "⚔️" },
+            DEFENSE: { name: "Defense", color: "#4444FF", backColor: "#00008B", symbol: "🛡️" },
+            CURSE: { name: "Curse", color: "#AA44AA", backColor: "#4B0082", symbol: "💀" },
+            HEAL: { name: "Heal", color: "#44FF44", backColor: "#006400", symbol: "💚" },
+            SPECIAL: { name: "Special", color: "#FFD700", backColor: "#8B7500", symbol: "⭐" }
+        };
+
+        // Particle
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8 - 2;
+                this.color = color;
+                this.life = 1.0;
+                this.size = 3 + Math.random() * 5;
+            }
+
+            update(deltaTime) {
+                this.x += this.vx * deltaTime * 60;
+                this.y += this.vy * deltaTime * 60;
+                this.vy += 0.2 * deltaTime * 60;
+                this.life -= 0.02 * deltaTime * 60;
+            }
+
+            draw() {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Floating Text
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.0;
+                this.vy = -30;
+            }
+
+            update(deltaTime) {
+                this.y += this.vy * deltaTime;
+                this.life -= 0.8 * deltaTime;
+            }
+
+            draw() {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.font = "bold 32px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 4;
+                ctx.strokeText(this.text, this.x, this.y);
+                ctx.fillStyle = this.color;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // Mystery Card (on board)
+        class MysteryCard {
+            constructor(x, y, index) {
+                this.x = x;
+                this.y = y;
+                this.index = index;
+                this.revealed = false;
+                this.isGood = false; // Will be set randomly
+                this.multiplier = this.generateMultiplier(); // x1, x2, x3, x5, etc.
+                this.width = 65; // Optimized size to fit all cards
+                this.height = 90; // Optimized size to fit all cards
+                this.glow = 0;
+                this.pulse = Math.random() * Math.PI * 2;
+            }
+
+            generateMultiplier() {
+                // Good cards: x1, x2, x3, x5 (weighted towards lower)
+                // Bad cards: x1, x2, x3, x5 (weighted towards higher)
+                const multipliers = [1, 2, 3, 5];
+                const weights = [0.4, 0.3, 0.2, 0.1]; // More likely to get x1
+                let rand = Math.random();
+                let sum = 0;
+                for (let i = 0; i < weights.length; i++) {
+                    sum += weights[i];
+                    if (rand <= sum) {
+                        return multipliers[i];
+                    }
+                }
+                return multipliers[0];
+            }
+
+            reveal() {
+                if (this.revealed) return;
+                this.revealed = true;
+                this.glow = 1.0;
+                
+                const cx = this.x + this.width / 2;
+                const cy = this.y + this.height / 2;
+                
+                // Particles
+                const color = this.isGood ? "#44FF44" : "#FF4444";
+                for (let i = 0; i < 30; i++) {
+                    game.particles.push(new Particle(cx, cy, color));
+                }
+                
+                // Screen flash
+                game.screenFlash = { color: color, life: 0.3 };
+                game.screenShake = 0.3;
+            }
+
+            update(deltaTime) {
+                this.glow = Math.max(0, this.glow - 0.05 * deltaTime * 60);
+                this.pulse += 0.1 * deltaTime * 60;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                
+                // Glow if revealed
+                if (this.revealed && this.glow > 0) {
+                    const color = this.isGood ? "#44FF44" : "#FF4444";
+                    for (let i = 0; i < 5; i++) {
+                        const size = this.width * (1 + i * 0.8) * this.glow * 1.5;
+                        const alpha = (this.glow * 0.5) / (i + 1);
+                        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+                        const hexAlpha = Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                        grad.addColorStop(0, color + hexAlpha);
+                        grad.addColorStop(1, 'transparent');
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                if (!this.revealed) {
+                    // MYSTERIOUS ARTISTIC CARD BACK
+                    const pulseSize = 1 + Math.sin(this.pulse) * 0.1;
+                    ctx.scale(pulseSize, pulseSize);
+                    
+                    // Dark base with gradient
+                    const baseGradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
+                    baseGradient.addColorStop(0, "#2a2a3a");
+                    baseGradient.addColorStop(0.5, "#1a1a2a");
+                    baseGradient.addColorStop(1, "#0a0a1a");
+                    ctx.fillStyle = baseGradient;
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    
+                    // Mystical pattern overlay
+                    ctx.strokeStyle = "#4a4a6a";
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.6;
+                    
+                    // Swirling pattern
+                    for (let i = 0; i < 3; i++) {
+                        ctx.beginPath();
+                        const angle = this.pulse + i * (Math.PI * 2 / 3);
+                        const radius = this.width * 0.3;
+                        ctx.arc(Math.cos(angle) * radius * 0.5, Math.sin(angle) * radius * 0.5, radius, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    
+                    // Central symbol (mystical eye/star) - BIGGER AND CLEARER
+                    ctx.globalAlpha = 0.9;
+                    ctx.strokeStyle = "#8a8aaa";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    // Star shape - larger
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2;
+                        const radius = i % 2 === 0 ? this.width * 0.2 : this.width * 0.35;
+                        const x = Math.cos(angle) * radius;
+                        const y = Math.sin(angle) * radius;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    // Additional inner circle for clarity
+                    ctx.strokeStyle = "#6a6a8a";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // Glowing center
+                    const centerGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, this.width * 0.2);
+                    centerGlow.addColorStop(0, "#6a6a8a80");
+                    centerGlow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = centerGlow;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.width * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Border with subtle glow
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = "#5a5a7a";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.strokeStyle = "#3a3a5a";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(-this.width / 2 + 2, -this.height / 2 + 2, this.width - 4, this.height - 4);
+                } else {
+                    // Revealed card with multiplier
+                    const color = this.isGood ? "#44FF44" : "#FF4444";
+                    const gradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
+                    gradient.addColorStop(0, color);
+                    gradient.addColorStop(1, this.isGood ? "#006400" : "#8B0000");
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.strokeStyle = "#FFFFFF";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    
+                    // Multiplier text - BIGGER AND CLEARER
+                    ctx.font = "bold 40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.strokeStyle = "#000000";
+                    ctx.lineWidth = 4;
+                    const multText = `x${this.multiplier}`;
+                    ctx.strokeText(multText, 0, 0);
+                    ctx.fillText(multText, 0, 0);
+                    
+                    // Good/Bad indicator - BIGGER
+                    ctx.font = "bold 28px Arial";
+                    ctx.fillText(this.isGood ? "✓" : "✗", 0, -this.height * 0.35);
+                }
+                ctx.restore();
+            }
+
+            checkHit(x, y) {
+                return x >= this.x && x <= this.x + this.width &&
+                       y >= this.y && y <= this.y + this.height;
+            }
+        }
+
+        // Falling Card (for stacking)
+        class FallingCard {
+            constructor(x, type) {
+                this.x = x;
+                this.y = -100;
+                this.type = type;
+                this.revealed = false;
+                this.width = 80;
+                this.height = 120;
+                this.speed = (1.5 + Math.random() * 1) * 5 * 0.49; // Reduced by 30% more (0.7 * 0.7)
+                this.multiplier = this.generateMultiplier(); // Random multiplier for falling cards
+                this.value = this.generateValue();
+                this.glow = 0;
+                this.fadeOut = 1.0;
+            }
+
+            generateMultiplier() {
+                // Random multiplier x1, x2, x3, x5
+                const multipliers = [1, 2, 3, 5];
+                const weights = [0.4, 0.3, 0.2, 0.1];
+                let rand = Math.random();
+                let sum = 0;
+                for (let i = 0; i < weights.length; i++) {
+                    sum += weights[i];
+                    if (rand <= sum) {
+                        return multipliers[i];
+                    }
+                }
+                return multipliers[0];
+            }
+
+            generateValue() {
+                // Only damage and health now (no shield)
+                if (this.type === CARD_TYPES.ATTACK || this.type === CARD_TYPES.CURSE) {
+                    return { damage: 10 + Math.floor(Math.random() * 20), health: 0 };
+                } else if (this.type === CARD_TYPES.HEAL) {
+                    return { damage: 0, health: 10 + Math.floor(Math.random() * 20) };
+                } else {
+                    // Mixed cards
+                    return { 
+                        damage: 5 + Math.floor(Math.random() * 15), 
+                        health: 5 + Math.floor(Math.random() * 15) 
+                    };
+                }
+            }
+
+            reveal() {
+                if (this.revealed) return;
+                this.revealed = true;
+                this.glow = 1.0;
+                
+                const cx = this.x + this.width / 2;
+                const cy = this.y + this.height / 2;
+                
+                // Particles
+                for (let i = 0; i < 30; i++) {
+                    game.particles.push(new Particle(cx, cy, this.type.color));
+                }
+                
+                // Screen flash
+                game.screenFlash = { color: this.type.color, life: 0.3 };
+                game.screenShake = 0.3;
+            }
+
+            update(deltaTime) {
+                if (!this.revealed) {
+                    this.y += this.speed * deltaTime * 60;
+                } else {
+                    // Fade out after reveal
+                    this.fadeOut -= 0.8 * deltaTime; // Fade out quickly
+                    this.glow = Math.max(0, this.glow - 0.05 * deltaTime * 60);
+                }
+            }
+
+            isDead() {
+                return this.revealed && this.fadeOut <= 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                
+                // Apply fade out
+                if (this.revealed) {
+                    ctx.globalAlpha = this.fadeOut;
+                }
+                
+                if (!this.revealed) {
+                    // Card back
+                    ctx.fillStyle = this.type.backColor;
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.strokeStyle = this.type.color;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.font = "30px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = this.type.color;
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillText(this.type.symbol, 0, -15);
+                    ctx.globalAlpha = 1.0;
+                    // Show multiplier on card back
+                    ctx.font = "bold 24px Arial";
+                    ctx.fillStyle = "#FFD700";
+                    ctx.strokeStyle = "#000000";
+                    ctx.lineWidth = 2;
+                    const multText = `x${this.multiplier}`;
+                    ctx.strokeText(multText, 0, 15);
+                    ctx.fillText(multText, 0, 15);
+                } else {
+                    // MUCH BIGGER GLOW - 5 layers with larger size
+                    if (this.glow > 0) {
+                        for (let i = 0; i < 5; i++) {
+                            const size = this.width * (1 + i * 1.2) * this.glow * 1.5; // Bigger glow
+                            const alpha = (this.glow * 0.6) / (i + 1); // More intense
+                            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+                            const hexAlpha = Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                            grad.addColorStop(0, this.type.color + hexAlpha);
+                            grad.addColorStop(0.3, this.type.color + Math.floor(alpha * 0.5 * 255).toString(16).padStart(2, '0'));
+                            grad.addColorStop(1, 'transparent');
+                            ctx.fillStyle = grad;
+                            ctx.beginPath();
+                            ctx.arc(0, 0, size, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        
+                        // Pulsing outer ring
+                        const pulseSize = this.width * 4 * this.glow;
+                        const pulseAlpha = Math.sin(Date.now() / 50) * 0.3 + 0.3;
+                        const pulseGrad = ctx.createRadialGradient(0, 0, this.width, 0, 0, pulseSize);
+                        pulseGrad.addColorStop(0, this.type.color + Math.floor(pulseAlpha * 255).toString(16).padStart(2, '0'));
+                        pulseGrad.addColorStop(1, 'transparent');
+                        ctx.fillStyle = pulseGrad;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, pulseSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    // Card face
+                    const gradient = ctx.createLinearGradient(-this.width / 2, -this.height / 2, this.width / 2, this.height / 2);
+                    gradient.addColorStop(0, this.type.color);
+                    gradient.addColorStop(1, this.type.backColor);
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.strokeStyle = "#FFFFFF";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.font = "40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillText(this.type.symbol, 0, -20);
+                    ctx.font = "bold 20px Arial";
+                    // Show stacked values
+                    if (this.value.damage > 0) {
+                        ctx.fillText(`⚔️${Math.round(this.value.damage)}`, -20, 20);
+                    }
+                    if (this.value.health > 0) {
+                        ctx.fillText(`💚${Math.round(this.value.health)}`, 20, 20);
+                    }
+                    // Show multiplier on falling card
+                    ctx.font = "bold 28px Arial";
+                    ctx.fillStyle = "#FFD700";
+                    ctx.strokeStyle = "#000000";
+                    ctx.lineWidth = 3;
+                    const multText = `x${this.multiplier}`;
+                    ctx.strokeText(multText, 0, 50);
+                    ctx.fillText(multText, 0, 50);
+                }
+                ctx.restore();
+            }
+
+            checkHit(x, y) {
+                return x >= this.x && x <= this.x + this.width &&
+                       y >= this.y && y <= this.y + this.height;
+            }
+        }
+
+        // Boss
+        class Boss {
+            constructor() {
+                this.maxHealth = 1667; // Reduced by 3x (5000/3)
+                this.health = this.maxHealth;
+                this.x = CANVAS_WIDTH / 2;
+                this.y = 150; // Moved lower so health bar is fully visible
+                this.size = 120;
+                this.animationTime = 0;
+                this.attackTimer = 0;
+                this.attackCooldown = 3.0;
+            }
+
+            update(deltaTime) {
+                this.animationTime += deltaTime;
+                this.attackTimer += deltaTime;
+                
+                if (this.attackTimer >= this.attackCooldown && game.gameState === "PLAYING") {
+                    this.attack();
+                    this.attackTimer = 0;
+                }
+            }
+
+            attack() {
+                const damage = 8 + Math.floor(Math.random() * 12);
+                game.takeDamage(damage);
+                game.screenShake = 0.3;
+            }
+
+            takeDamage(amount) {
+                this.health = Math.max(0, this.health - amount);
+                game.floatingTexts.push(new FloatingText(this.x, this.y - this.size, `-${amount}`, "#FF4444"));
+                
+                if (this.health <= 0) {
+                    game.gameState = "WON";
+                }
+            }
+
+            draw() {
+                ctx.save();
+                
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y + this.size + 20, this.size * 0.8, this.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Glow
+                const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+                glowGradient.addColorStop(0, `rgba(139, 0, 0, ${0.3 + Math.sin(this.animationTime * 3) * 0.2})`);
+                glowGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.translate(this.x, this.y);
+                
+                // Body
+                const bodyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+                bodyGradient.addColorStop(0, "#1a1a1a");
+                bodyGradient.addColorStop(1, "#000000");
+                ctx.fillStyle = bodyGradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyes
+                const eyeGlow = Math.sin(this.animationTime * 4) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
+                ctx.beginPath();
+                ctx.arc(-this.size * 0.3, -this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.size * 0.3, -this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Health bar - BIGGER AND MORE VISIBLE
+                const barWidth = 250;
+                const barHeight = 25;
+                const barX = this.x - barWidth / 2;
+                const barY = 60; // Moved lower to be fully visible
+                
+                ctx.fillStyle = "#333";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                const healthPercent = this.health / this.maxHealth;
+                const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+                healthGradient.addColorStop(0, "#FF0000");
+                healthGradient.addColorStop(healthPercent, "#FF4444");
+                healthGradient.addColorStop(healthPercent, "#333");
+                healthGradient.addColorStop(1, "#333");
+                ctx.fillStyle = healthGradient;
+                ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+                
+                ctx.strokeStyle = "#FFF";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+                
+                // Health numbers - BIGGER AND MORE VISIBLE
+                ctx.font = "bold 22px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FFFFFF";
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 4;
+                const healthText = `${Math.ceil(this.health)}/${this.maxHealth}`;
+                ctx.strokeText(healthText, this.x, barY - 8);
+                ctx.fillText(healthText, this.x, barY - 8);
+                
+                // Label - removed to save space, health numbers are clear enough
+            }
+        }
+
+        // Game
+        class Game {
+            constructor() {
+                this.gameState = "START";
+                this.fallingCards = []; // Cards that fall from top
+                this.mysteryCards = []; // 32 mystery cards on board
+                this.particles = [];
+                this.floatingTexts = [];
+                this.boss = new Boss();
+                this.playerHealth = 833; // Reduced by 3x (2500/3)
+                this.maxPlayerHealth = 833;
+                this.applyEffectAnimation = null; // For showing applied values
+                this.spawnTimer = 0;
+                this.spawnInterval = 1.2;
+                this.screenShake = 0;
+                this.shakeX = 0;
+                this.shakeY = 0;
+                this.screenFlash = null;
+                
+                // Round system
+                this.stackedDamage = 0; // Stacked damage from falling cards
+                this.stackedHealth = 0; // Stacked health from falling cards
+                this.cardsOpened = 0; // How many mystery cards opened (max 25)
+                this.goodCardsOpened = 0; // How many good cards opened (max 16)
+                this.allGoodRevealed = false; // If all 16 good cards are opened
+                this.roundActive = false;
+                
+                // Batch system for falling cards
+                this.batchSize = 20; // Cards per batch
+                this.cardsInBatch = 0; // How many cards spawned in current batch
+                this.cardsPickedFromBatch = 0; // How many cards picked from current batch (max 10)
+                this.waitingForMysteryCard = false; // True when waiting for player to pick mystery card
+                this.batchMessage = null; // Message to show in middle area
+                
+                this.initMysteryCards();
+            }
+            
+            initMysteryCards() {
+                // Create 32 mystery cards on LEFT and RIGHT sides (2 columns x 8 rows each)
+                // Falling cards will be in the MIDDLE area
+                this.mysteryCards = [];
+                const cardSpacingY = 85; // Vertical spacing between rows
+                const startY = 400; // Start below boss and collected values
+                
+                // Left side: 2 columns x 8 rows = 16 cards (vertical layout)
+                const leftStartX = 50;
+                const leftSpacingX = 70; // Spacing between the 2 columns
+                
+                // Right side: 2 columns x 8 rows = 16 cards (vertical layout)
+                const rightStartX = CANVAS_WIDTH - 50 - (2 * 70);
+                const rightSpacingX = 70; // Spacing between the 2 columns
+                
+                // Randomly assign 16 good, 16 bad - MIXED ACROSS BOTH SIDES
+                const assignments = [];
+                for (let i = 0; i < 16; i++) assignments.push(true);
+                for (let i = 0; i < 16; i++) assignments.push(false);
+                // Shuffle thoroughly
+                for (let i = assignments.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [assignments[i], assignments[j]] = [assignments[j], assignments[i]];
+                }
+                
+                // Create all card positions first, then randomly assign good/bad
+                const allPositions = [];
+                
+                // Left side positions (16 cards: 8 rows x 2 columns)
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 2; col++) {
+                        allPositions.push({
+                            x: leftStartX + col * leftSpacingX,
+                            y: startY + row * cardSpacingY
+                        });
+                    }
+                }
+                
+                // Right side positions (16 cards: 8 rows x 2 columns)
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 2; col++) {
+                        allPositions.push({
+                            x: rightStartX + col * rightSpacingX,
+                            y: startY + row * cardSpacingY
+                        });
+                    }
+                }
+                
+                // Shuffle positions to mix left and right
+                for (let i = allPositions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
+                }
+                
+                // Create cards with random assignments
+                for (let i = 0; i < 32; i++) {
+                    const pos = allPositions[i];
+                    const card = new MysteryCard(pos.x, pos.y, i);
+                    card.isGood = assignments[i];
+                    this.mysteryCards.push(card);
+                }
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+                this.fallingCards = [];
+                this.particles = [];
+                this.floatingTexts = [];
+                this.boss = new Boss();
+                this.playerHealth = 833;
+                this.stackedDamage = 0;
+                this.stackedHealth = 0;
+                this.cardsOpened = 0;
+                this.goodCardsOpened = 0;
+                this.allGoodRevealed = false;
+                this.roundActive = true;
+                this.applyEffectAnimation = null;
+                this.cardsInBatch = 0;
+                this.cardsPickedFromBatch = 0;
+                this.waitingForMysteryCard = false;
+                this.batchMessage = null;
+                this.initMysteryCards();
+                this.startNewBatch(); // Start first batch
+            }
+            
+            startNewBatch() {
+                // Remove all unpicked falling cards
+                this.fallingCards = this.fallingCards.filter(card => card.revealed);
+                this.cardsInBatch = 0;
+                this.cardsPickedFromBatch = 0;
+                this.waitingForMysteryCard = false;
+                this.batchMessage = null;
+            }
+
+            spawnCard() {
+                // Don't spawn if batch is complete or waiting for mystery card
+                if (this.waitingForMysteryCard || this.cardsInBatch >= this.batchSize) {
+                    return;
+                }
+                
+                // Spawn falling cards in the MIDDLE area (where mystery cards were)
+                // Middle area: 300 to 500
+                const middleStartX = 300;
+                const middleEndX = 500;
+                const x = middleStartX + Math.random() * (middleEndX - middleStartX);
+                
+                // Only spawn damage or health cards (no shield)
+                const types = [CARD_TYPES.ATTACK, CARD_TYPES.HEAL];
+                // Sometimes mixed cards
+                if (Math.random() < 0.3) {
+                    types.push(CARD_TYPES.SPECIAL);
+                }
+                const type = types[Math.floor(Math.random() * types.length)];
+                this.fallingCards.push(new FallingCard(x, type));
+                this.cardsInBatch++;
+                
+                // If batch is complete, show message (but player can still pick cards)
+                if (this.cardsInBatch >= this.batchSize) {
+                    this.waitingForMysteryCard = true;
+                    this.batchMessage = "Select a closed card!";
+                }
+            }
+
+            handleClick(x, y) {
+                if (this.gameState === "START") {
+                    this.start();
+                    return;
+                }
+                
+                if (this.gameState !== "PLAYING") {
+                    if (this.gameState === "WON" || this.gameState === "LOST") {
+                        this.start();
+                    }
+                    return;
+                }
+
+                // Check mystery cards first - CAN CLICK AT ANY TIME
+                for (let card of this.mysteryCards) {
+                    if (!card.revealed && card.checkHit(x, y) && this.cardsOpened < 25) {
+                        this.openMysteryCard(card);
+                        // After opening mystery card, reset counters and start new batch
+                        this.startNewBatch();
+                        return;
+                    }
+                }
+
+                // Check falling cards (only if not at max picks)
+                if (this.cardsPickedFromBatch < 10) {
+                    for (let card of this.fallingCards) {
+                        if (!card.revealed && card.checkHit(x, y)) {
+                            card.reveal();
+                            // Stack the values with multiplier
+                            const damageValue = (card.value.damage || 0) * card.multiplier;
+                            const healthValue = (card.value.health || 0) * card.multiplier;
+                            this.stackedDamage += damageValue;
+                            this.stackedHealth += healthValue;
+                            this.cardsPickedFromBatch++;
+                            
+                            // If picked 10 cards, show message to select mystery card
+                            if (this.cardsPickedFromBatch >= 10) {
+                                this.waitingForMysteryCard = true;
+                                this.batchMessage = "Select a closed card!";
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            openMysteryCard(card) {
+                if (card.revealed || this.cardsOpened >= 25) return;
+                
+                card.reveal();
+                this.cardsOpened++;
+                
+                // Check if all 16 good cards are opened
+                if (card.isGood) {
+                    this.goodCardsOpened++;
+                    if (this.goodCardsOpened >= 16) {
+                        this.allGoodRevealed = true;
+                        // Make all remaining cards good
+                        for (let c of this.mysteryCards) {
+                            if (!c.revealed) {
+                                c.isGood = true;
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate applied values with multiplier
+                const appliedDamage = this.stackedDamage * card.multiplier;
+                const appliedHealth = this.stackedHealth * card.multiplier;
+                
+                // Show visual effect animation
+                this.applyEffectAnimation = {
+                    life: 1.0,
+                    isGood: card.isGood,
+                    damage: appliedDamage,
+                    health: appliedHealth,
+                    multiplier: card.multiplier
+                };
+                
+                // Apply stacked values based on good/bad
+                if (card.isGood) {
+                    // Good: damage to boss, health to player
+                    if (appliedDamage > 0) {
+                        this.boss.takeDamage(appliedDamage);
+                    }
+                    if (appliedHealth > 0) {
+                        this.playerHealth = Math.min(this.maxPlayerHealth, this.playerHealth + appliedHealth);
+                        this.floatingTexts.push(new FloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, `+${Math.round(appliedHealth)}`, "#44FF44"));
+                    }
+                } else {
+                    // Bad: damage to player, health to boss
+                    if (appliedDamage > 0) {
+                        this.takeDamage(appliedDamage);
+                    }
+                    if (appliedHealth > 0) {
+                        this.boss.health = Math.min(this.boss.maxHealth, this.boss.health + appliedHealth);
+                        this.floatingTexts.push(new FloatingText(this.boss.x, this.boss.y - this.boss.size, `+${Math.round(appliedHealth)}`, "#44FF44"));
+                    }
+                }
+                
+                // Reset stack
+                this.stackedDamage = 0;
+                this.stackedHealth = 0;
+                
+                // If round ends (25 cards opened), reset for next round
+                if (this.cardsOpened >= 25) {
+                    this.endRound();
+                }
+            }
+            
+            endRound() {
+                // Reset for next round
+                this.stackedDamage = 0;
+                this.stackedHealth = 0;
+                this.cardsOpened = 0;
+                this.goodCardsOpened = 0;
+                this.allGoodRevealed = false;
+                this.initMysteryCards(); // New mystery cards for next round
+            }
+
+            takeDamage(amount) {
+                if (amount > 0) {
+                    this.playerHealth = Math.max(0, this.playerHealth - amount);
+                    this.screenShake = 0.3;
+                    this.floatingTexts.push(new FloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, `-${Math.round(amount)}`, "#FF4444"));
+                    
+                    if (this.playerHealth <= 0) {
+                        this.gameState = "LOST";
+                    }
+                }
+            }
+
+            update(deltaTime) {
+                if (this.gameState === "PLAYING") {
+                    // Only spawn cards if not waiting for mystery card and batch not complete
+                    if (!this.waitingForMysteryCard && this.cardsInBatch < this.batchSize) {
+                        this.spawnTimer += deltaTime;
+                        if (this.spawnTimer >= this.spawnInterval) {
+                            this.spawnCard();
+                            this.spawnTimer = 0;
+                        }
+                    }
+
+                    // Boss doesn't attack during rounds
+                    // this.boss.update(deltaTime);
+
+                    // Update mystery cards
+                    for (let card of this.mysteryCards) {
+                        card.update(deltaTime);
+                    }
+
+                    for (let i = this.fallingCards.length - 1; i >= 0; i--) {
+                        this.fallingCards[i].update(deltaTime);
+                        // Remove if off screen or faded out
+                        if (this.fallingCards[i].y > CANVAS_HEIGHT + 50 || this.fallingCards[i].isDead()) {
+                            this.fallingCards.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = this.particles.length - 1; i >= 0; i--) {
+                        this.particles[i].update(deltaTime);
+                        if (this.particles[i].life <= 0) {
+                            this.particles.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+                        this.floatingTexts[i].update(deltaTime);
+                        if (this.floatingTexts[i].life <= 0) {
+                            this.floatingTexts.splice(i, 1);
+                        }
+                    }
+
+                    if (this.screenFlash) {
+                        this.screenFlash.life -= deltaTime * 3;
+                        if (this.screenFlash.life <= 0) {
+                            this.screenFlash = null;
+                        }
+                    }
+
+                    // Update apply effect animation
+                    if (this.applyEffectAnimation) {
+                        this.applyEffectAnimation.life -= deltaTime * 2;
+                        if (this.applyEffectAnimation.life <= 0) {
+                            this.applyEffectAnimation = null;
+                        }
+                    }
+
+                    if (this.screenShake > 0) {
+                        this.screenShake -= deltaTime;
+                        this.shakeX = (Math.random() - 0.5) * 10 * this.screenShake;
+                        this.shakeY = (Math.random() - 0.5) * 10 * this.screenShake;
+                    } else {
+                        this.shakeX = 0;
+                        this.shakeY = 0;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                ctx.save();
+                ctx.translate(this.shakeX, this.shakeY);
+
+                // Background
+                const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                bgGradient.addColorStop(0, "#1a0000");
+                bgGradient.addColorStop(0.5, "#2d0000");
+                bgGradient.addColorStop(1, "#000000");
+                ctx.fillStyle = bgGradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Lava effects
+                for (let i = 0; i < 5; i++) {
+                    const x = (i / 5) * CANVAS_WIDTH;
+                    const glow = Math.sin(Date.now() / 1000 + i) * 0.3 + 0.7;
+                    const gradient = ctx.createRadialGradient(x, CANVAS_HEIGHT, 0, x, CANVAS_HEIGHT, 200);
+                    gradient.addColorStop(0, `rgba(139, 0, 0, ${glow * 0.3})`);
+                    gradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x - 100, CANVAS_HEIGHT - 200, 200, 200);
+                }
+
+                // Screen flash
+                if (this.screenFlash && this.screenFlash.life > 0) {
+                    ctx.fillStyle = this.screenFlash.color;
+                    ctx.globalAlpha = 0.4 * this.screenFlash.life;
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // Draw collected values in center (while collecting)
+                if (this.gameState === "PLAYING" && (this.stackedDamage > 0 || this.stackedHealth > 0)) {
+                    this.drawCollectedValues();
+                }
+                
+                // Draw batch message in middle area
+                if (this.gameState === "PLAYING" && this.batchMessage) {
+                    this.drawBatchMessage();
+                }
+
+                // Draw apply effect animation
+                if (this.applyEffectAnimation && this.applyEffectAnimation.life > 0) {
+                    this.drawApplyEffect();
+                }
+
+                if (this.gameState === "START") {
+                    this.drawStartScreen();
+                } else if (this.gameState === "PLAYING" || this.gameState === "WON" || this.gameState === "LOST") {
+                    this.boss.draw();
+
+                    // Draw mystery cards
+                    for (let card of this.mysteryCards) {
+                        card.draw();
+                    }
+
+                    // Draw falling cards
+                    for (let card of this.fallingCards) {
+                        card.draw();
+                    }
+
+                    for (let particle of this.particles) {
+                        particle.draw();
+                    }
+
+                    for (let text of this.floatingTexts) {
+                        text.draw();
+                    }
+
+                    this.drawUI();
+
+                    if (this.gameState === "WON") {
+                        this.drawWinScreen();
+                    } else if (this.gameState === "LOST") {
+                        this.drawLoseScreen();
+                    }
+                }
+
+                ctx.restore();
+            }
+
+            drawStartScreen() {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                ctx.font = "bold 48px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#FF4444";
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 4;
+                ctx.strokeText("DEMON CARDS", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
+                ctx.fillText("DEMON CARDS", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
+
+                ctx.font = "24px Arial";
+                ctx.fillStyle = "#FFFFFF";
+                ctx.lineWidth = 2;
+                ctx.strokeText("Click cards as they fall to reveal their power", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+                ctx.fillText("Click cards as they fall to reveal their power", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+                ctx.strokeText("Defeat the Shadow Demon!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                ctx.fillText("Defeat the Shadow Demon!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                
+                ctx.font = "bold 28px Arial";
+                ctx.fillStyle = "#FFD700";
+                ctx.strokeText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80);
+                ctx.fillText("Click to start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 80);
+            }
+
+            drawBatchMessage() {
+                // Beautiful message in middle area (yellow space)
+                const centerX = CANVAS_WIDTH / 2;
+                const centerY = 500; // Middle of the card area
+                const boxWidth = 350;
+                const boxHeight = 100;
+                
+                // Animated pulsing glow effect
+                const pulse = Math.sin(Date.now() / 300) * 0.2 + 0.8;
+                
+                // Outer glow rings
+                for (let i = 0; i < 3; i++) {
+                    const glowSize = boxWidth * (1 + i * 0.3) * pulse;
+                    const glowAlpha = (0.3 - i * 0.1) * pulse;
+                    const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowSize);
+                    glowGradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
+                    glowGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glowGradient;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Main box with gradient
+                const boxGradient = ctx.createLinearGradient(
+                    centerX - boxWidth / 2, centerY - boxHeight / 2,
+                    centerX + boxWidth / 2, centerY + boxHeight / 2
+                );
+                boxGradient.addColorStop(0, "rgba(255, 215, 0, 0.95)");
+                boxGradient.addColorStop(0.5, "rgba(255, 200, 0, 0.9)");
+                boxGradient.addColorStop(1, "rgba(255, 180, 0, 0.95)");
+                ctx.fillStyle = boxGradient;
+                ctx.fillRect(centerX - boxWidth / 2, centerY - boxHeight / 2, boxWidth, boxHeight);
+                
+                // Shine effect
+                const shineGradient = ctx.createLinearGradient(
+                    centerX - boxWidth / 2, centerY - boxHeight / 2,
+                    centerX - boxWidth / 2, centerY
+                );
+                shineGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
+                shineGradient.addColorStop(1, "transparent");
+                ctx.fillStyle = shineGradient;
+                ctx.fillRect(centerX - boxWidth / 2, centerY - boxHeight / 2, boxWidth, boxHeight / 2);
+                
+                // Multiple borders for depth
+                ctx.strokeStyle = "#FFD700";
+                ctx.lineWidth = 5;
+                ctx.strokeRect(centerX - boxWidth / 2, centerY - boxHeight / 2, boxWidth, boxHeight);
+                ctx.strokeStyle = "#FFFFFF";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(centerX - boxWidth / 2 + 3, centerY - boxHeight / 2 + 3, boxWidth - 6, boxHeight - 6);
+                ctx.strokeStyle = "#FFA500";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(centerX - boxWidth / 2 + 5, centerY - boxHeight / 2 + 5, boxWidth - 10, boxHeight - 10);
+                
+                // Message text with multiple effects
+                ctx.font = "bold 32px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                
+                // Text shadow/glow
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                
+                // Outer stroke
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 6;
+                ctx.strokeText(this.batchMessage, centerX, centerY);
+                
+                // Inner stroke
+                ctx.strokeStyle = "#FFFFFF";
+                ctx.lineWidth = 2;
+                ctx.strokeText(this.batchMessage, centerX, centerY);
+                
+                // Main text with gradient
+                const textGradient = ctx.createLinearGradient(centerX - 100, centerY - 20, centerX + 100, centerY + 20);
+                textGradient.addColorStop(0, "#FFFFFF");
+                textGradient.addColorStop(0.5, "#FFD700");
+                textGradient.addColorStop(1, "#FFFFFF");
+                ctx.fillStyle = textGradient;
+                ctx.fillText(this.batchMessage, centerX, centerY);
+                
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+
+            drawCollectedValues() {
+                // Nice visual display above mystery cards, below boss (moved lower to avoid boss overlap)
+                const centerX = CANVAS_WIDTH / 2;
+                const centerY = 350; // Moved lower to avoid boss overlap
+                const boxWidth = 280; // Smaller to fit in middle area
+                const boxHeight = 90; // Slightly smaller to save space
+                
+                // Background with glow
+                const bgGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, boxWidth);
+                bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.9)");
+                bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.7)");
+                ctx.fillStyle = bgGradient;
+                ctx.fillRect(centerX - boxWidth / 2, centerY - boxHeight / 2, boxWidth, boxHeight);
+                
+                // Border
+                ctx.strokeStyle = "#FFD700";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(centerX - boxWidth / 2, centerY - boxHeight / 2, boxWidth, boxHeight);
+                
+                // Title
+                ctx.font = "bold 18px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FFD700";
+                ctx.fillText("COLLECTED", centerX, centerY - 40);
+                
+                // Damage
+                if (this.stackedDamage > 0) {
+                    ctx.font = "bold 32px Arial";
+                    ctx.fillStyle = "#FF4444";
+                    ctx.fillText(`⚔️ ${Math.round(this.stackedDamage)}`, centerX - 80, centerY + 10);
+                }
+                
+                // Health
+                if (this.stackedHealth > 0) {
+                    ctx.font = "bold 32px Arial";
+                    ctx.fillStyle = "#44FF44";
+                    ctx.fillText(`💚 ${Math.round(this.stackedHealth)}`, centerX + 80, centerY + 10);
+                }
+            }
+
+            drawApplyEffect() {
+                const anim = this.applyEffectAnimation;
+                if (!anim) return;
+                
+                const centerX = CANVAS_WIDTH / 2;
+                const centerY = CANVAS_HEIGHT / 2;
+                const scale = 1 + (1 - anim.life) * 0.5;
+                const alpha = anim.life;
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.scale(scale, scale);
+                ctx.globalAlpha = alpha;
+                
+                // Background flash
+                const color = anim.isGood ? "#44FF44" : "#FF4444";
+                const flashGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 200);
+                flashGradient.addColorStop(0, color + "80");
+                flashGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = flashGradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, 200, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Box
+                const boxWidth = 350;
+                const boxHeight = 150;
+                ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+                ctx.fillRect(-boxWidth / 2, -boxHeight / 2, boxWidth, boxHeight);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.strokeRect(-boxWidth / 2, -boxHeight / 2, boxWidth, boxHeight);
+                
+                // Title
+                ctx.font = "bold 24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = color;
+                ctx.fillText(anim.isGood ? "GOOD!" : "BAD!", 0, -50);
+                
+                // Multiplier
+                ctx.font = "bold 36px Arial";
+                ctx.fillStyle = "#FFD700";
+                ctx.fillText(`x${anim.multiplier}`, 0, -10);
+                
+                // Applied values
+                ctx.font = "bold 28px Arial";
+                if (anim.damage > 0) {
+                    ctx.fillStyle = "#FF4444";
+                    ctx.fillText(`⚔️ ${Math.round(anim.damage)}`, -100, 40);
+                }
+                if (anim.health > 0) {
+                    ctx.fillStyle = "#44FF44";
+                    ctx.fillText(`💚 ${Math.round(anim.health)}`, 100, 40);
+                }
+                
+                ctx.restore();
+            }
+
+            drawUI() {
+                const barWidth = 200;
+                const barHeight = 25;
+                const barX = 20;
+                const barY = CANVAS_HEIGHT - 60; // Positioned at bottom
+
+                ctx.fillStyle = "#333";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                const healthPercent = this.playerHealth / this.maxPlayerHealth;
+                const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+                healthGradient.addColorStop(0, "#00FF00");
+                healthGradient.addColorStop(healthPercent, "#44FF44");
+                healthGradient.addColorStop(healthPercent, "#333");
+                healthGradient.addColorStop(1, "#333");
+                ctx.fillStyle = healthGradient;
+                ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+                ctx.strokeStyle = "#FFF";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                ctx.font = "bold 18px Arial";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#FFF";
+                ctx.fillText(`HP: ${Math.ceil(this.playerHealth)}/${this.maxPlayerHealth}`, barX, barY - 5);
+
+                // Counters - positioned above player health bar
+                ctx.font = "bold 18px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FFD700";
+                const remainingCards = this.batchSize - this.cardsInBatch;
+                ctx.fillText(`Falling: ${remainingCards} left | Picked: ${this.cardsPickedFromBatch}/10 | Closed: ${this.cardsOpened}/25`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 90);
+                
+                if (this.allGoodRevealed) {
+                    ctx.fillStyle = "#44FF44";
+                    ctx.font = "bold 16px Arial";
+                    ctx.fillText("ALL GOOD CARDS REVEALED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT - 110);
+                }
+            }
+
+            drawWinScreen() {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.font = "bold 48px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FFD700";
+                ctx.fillText("VICTORY!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+                ctx.font = "24px Arial";
+                ctx.fillStyle = "#FFF";
+                ctx.fillText("You defeated the Shadow Demon!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                ctx.fillText("Click to play again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            }
+
+            drawLoseScreen() {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.font = "bold 48px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FF4444";
+                ctx.fillText("DEFEATED", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+                ctx.font = "24px Arial";
+                ctx.fillStyle = "#FFF";
+                ctx.fillText("The Shadow Demon has consumed you...", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                ctx.fillText("Click to try again", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            }
+        }
+
+        // Initialize and start game
+        const game = new Game();
+        let lastTime = performance.now();
+
+        function gameLoop() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function getCanvasPos(event) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.clientX || (event.changedTouches && event.changedTouches[0].clientX);
+            const clientY = event.clientY || (event.changedTouches && event.changedTouches[0].clientY);
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            const pos = getCanvasPos(event);
+            game.handleClick(pos.x, pos.y);
+        }
+
+        function onTouchStart(event) {
+            event.preventDefault();
+            const pos = getCanvasPos(event);
+            game.handleClick(pos.x, pos.y);
+        }
+
+        canvas.addEventListener('click', onClick);
+        canvas.addEventListener('touchstart', onTouchStart);
+
+        // Start game loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

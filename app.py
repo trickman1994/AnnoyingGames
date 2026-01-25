@@ -102,6 +102,12 @@ async def color_cascade(request):
     return FileResponse(file_path)
 
 
+async def demon_cards(request):
+    """Serve Demon Cards game"""
+    file_path = os.path.join(BASE_DIR, "games", "demon-cards", "index.html")
+    return FileResponse(file_path)
+
+
 # Define routes
 routes = [
     Route("/", homepage),
@@ -133,6 +139,8 @@ routes = [
     Route("/games/the-perfect-stack/", the_perfect_stack),
     Route("/games/color-cascade", color_cascade),
     Route("/games/color-cascade/", color_cascade),
+    Route("/games/demon-cards", demon_cards),
+    Route("/games/demon-cards/", demon_cards),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 
