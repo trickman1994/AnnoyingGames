@@ -222,7 +222,7 @@
             <h2>🐦 Bird Hunt - How to Play</h2>
             <div class="modal-body">
                 <h3>Objective</h3>
-                <p>Find all <strong>5 birds</strong> hidden in <strong>50 trees</strong> within <strong>30 seconds</strong>!</p>
+                <p>Find all <strong>5 birds</strong> hidden in <strong>36 trees</strong> within <strong>30 seconds</strong>!</p>
                 
                 <h3>⚠️ But it's not that easy...</h3>
                 <p><strong>Click a tree</strong> to throw a paper airplane at it</p>
@@ -256,6 +256,8 @@
         let CANVAS_WIDTH = BASE_WIDTH;
         let CANVAS_HEIGHT = BASE_HEIGHT;
         let scale = 1;
+        let displayWidth = BASE_WIDTH;
+        let displayHeight = BASE_HEIGHT;
 
         function resizeCanvas() {
             // Get actual header height from DOM
@@ -268,33 +270,33 @@
             const availableWidth = window.innerWidth - padding * 2;
             
             // Fill available space - prioritize height
-            let height = availableHeight;
-            let width = height * ASPECT_RATIO;
+            displayHeight = availableHeight;
+            displayWidth = displayHeight * ASPECT_RATIO;
             
             // If width exceeds available space, scale down
-            if (width > availableWidth) {
-                width = availableWidth;
-                height = width / ASPECT_RATIO;
+            if (displayWidth > availableWidth) {
+                displayWidth = availableWidth;
+                displayHeight = displayWidth / ASPECT_RATIO;
             }
             
             // Ensure we don't exceed base dimensions
-            if (width > BASE_WIDTH) {
-                width = BASE_WIDTH;
-                height = width / ASPECT_RATIO;
+            if (displayWidth > BASE_WIDTH) {
+                displayWidth = BASE_WIDTH;
+                displayHeight = displayWidth / ASPECT_RATIO;
             }
-            if (height > BASE_HEIGHT) {
-                height = BASE_HEIGHT;
-                width = height * ASPECT_RATIO;
+            if (displayHeight > BASE_HEIGHT) {
+                displayHeight = BASE_HEIGHT;
+                displayWidth = displayHeight * ASPECT_RATIO;
             }
             
             canvas.width = BASE_WIDTH;
             canvas.height = BASE_HEIGHT;
-            canvas.style.width = width + 'px';
-            canvas.style.height = height + 'px';
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
             
             CANVAS_WIDTH = BASE_WIDTH;
             CANVAS_HEIGHT = BASE_HEIGHT;
-            scale = width / BASE_WIDTH;
+            scale = displayWidth / BASE_WIDTH;
         }
 
         // Resize immediately on load and after DOM is ready
@@ -313,17 +315,21 @@
         window.addEventListener('orientationchange', () => {
             setTimeout(resizeCanvas, 200);
         });
-        const NUM_TREES = 50;
+        const NUM_TREES = 36; // 6x6 grid
         const NUM_BIRDS = 5;
         const GAME_TIME = 30;
+        
+        // Tree placement configuration - Easy to adjust!
+        const MIN_HORIZONTAL_DISTANCE = 50; // Minimum horizontal distance between trees (can be close horizontally)
+        const MIN_VERTICAL_DISTANCE = 1200; // Minimum vertical distance between trees (spread out vertically)
 
         class Tree {
             constructor(id, x, y) {
                 this.id = id;
                 this.x = x;
                 this.y = y;
-                this.width = 60;
-                this.height = 80;
+                this.width = 80; // Reduced from 90 (treeRadius 40 * 2)
+                this.height = 90; // Adjusted for treeRadius 40
                 this.hasBird = false;
                 this.birdRevealed = false;
                 this.shaking = false;
@@ -341,12 +347,12 @@
                 
                 // Draw trunk
                 ctx.fillStyle = "#8B4513";
-                ctx.fillRect(this.x - 10, this.y, 20, 40);
+                ctx.fillRect(this.x - 15, this.y, 30, 50);
                 
-                // Draw foliage (tree top)
+                // Draw foliage (tree top) - size 40
                 ctx.fillStyle = this.birdRevealed ? "#90EE90" : "#228B22";
                 ctx.beginPath();
-                ctx.arc(this.x, this.y - 20, 35, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y - 25, 40, 0, Math.PI * 2); // Tree radius 40
                 ctx.fill();
                 
                 // Add some texture
@@ -360,7 +366,7 @@
                 
                 // Draw bird if revealed
                 if (this.birdRevealed && this.hasBird) {
-                    this.drawBird(this.x, this.y - 20);
+                    this.drawBird(this.x, this.y - 25);
                 }
                 
                 ctx.restore();
@@ -420,7 +426,7 @@
 
             contains(x, y) {
                 const dx = x - this.x;
-                const dy = y - (this.y - 20);
+                const dy = y - (this.y - 25);
                 return Math.sqrt(dx * dx + dy * dy) < 40;
             }
         }
@@ -434,7 +440,7 @@
                 this.targetTree = targetTree;
                 this.targetTreeId = targetTree.id;
                 this.targetX = targetTree.x;
-                this.targetY = targetTree.y - 20;
+                this.targetY = targetTree.y - 25;
                 this.progress = 0;
                 
                 // Random flight time 2-3 seconds (120-180 frames)
@@ -530,8 +536,25 @@
                     // Smooth arc movement
                     const t = this.flyProgress;
                     this.x = this.startX + (this.targetX - this.startX) * t;
-                    const arcHeight = 50 * Math.sin(t * Math.PI);
+                    const arcHeight = 30 * Math.sin(t * Math.PI); // Reduced from 50 to keep birds in bounds
                     this.y = this.startY + (this.targetY - this.startY) * t - arcHeight;
+                    
+                    // Clamp bird position to safe zone (same as trees - center 60% of canvas)
+                    const safeZonePercent = 0.6;
+                    const safeZoneWidth = CANVAS_WIDTH * safeZonePercent;
+                    const safeZoneHeight = CANVAS_HEIGHT * safeZonePercent;
+                    const safeZoneStartX = (CANVAS_WIDTH - safeZoneWidth) / 2;
+                    const safeZoneEndX = safeZoneStartX + safeZoneWidth;
+                    const safeZoneStartY = (CANVAS_HEIGHT - safeZoneHeight) / 2;
+                    const safeZoneEndY = safeZoneStartY + safeZoneHeight;
+                    
+                    const margin = 20;
+                    const safeLeft = safeZoneStartX + margin;
+                    const safeRight = safeZoneEndX - margin;
+                    const safeTop = safeZoneStartY + 100 + margin; // Account for UI
+                    const safeBottom = safeZoneEndY - 100 - margin; // Account for UI
+                    this.x = Math.max(safeLeft, Math.min(safeRight, this.x));
+                    this.y = Math.max(safeTop, Math.min(safeBottom, this.y));
                     
                     if (this.flyProgress >= 1) {
                         // Arrived at new tree
@@ -564,13 +587,13 @@
                         if (oldTreeIndex >= 0) {
                             trees[oldTreeIndex].hasBird = false;
                             this.startX = trees[oldTreeIndex].x;
-                            this.startY = trees[oldTreeIndex].y - 20;
+                            this.startY = trees[oldTreeIndex].y - 25;
                         }
 
                         // Set target
                         this.nextTreeIndex = newTreeIndex;
                         this.targetX = trees[newTreeIndex].x;
-                        this.targetY = trees[newTreeIndex].y - 20;
+                        this.targetY = trees[newTreeIndex].y - 25;
                         
                         // Calculate fly speed (random 2-4 seconds)
                         const flyTime = 120 + Math.random() * 120; // 2-4 seconds
@@ -659,36 +682,62 @@
             }
 
             initializeTrees() {
-                // Create randomly distributed trees (not grid!)
-                const minDistance = 50; // Minimum distance between trees (closer!)
-                const margin = 60;
+                // Clear existing trees first!
+                this.trees = [];
                 
-                for (let i = 0; i < NUM_TREES; i++) {
-                    let x, y, tooClose;
-                    let attempts = 0;
-                    
-                    do {
-                        x = margin + Math.random() * (CANVAS_WIDTH - margin * 2);
-                        y = 150 + Math.random() * (CANVAS_HEIGHT - 250);
-                        tooClose = false;
-                        
-                        // Check distance from all existing trees
-                        for (const tree of this.trees) {
-                            const dx = x - tree.x;
-                            const dy = y - tree.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            if (distance < minDistance) {
-                                tooClose = true;
-                                break;
-                            }
-                        }
-                        
-                        attempts++;
-                        if (attempts > 100) break; // Prevent infinite loop
-                    } while (tooClose && attempts < 100);
-                    
-                    this.trees.push(new Tree(i, x, y));
+                const treeRadius = 40;
+                const trunkHeight = 50;
+                const treeTopOffset = 25;
+                const treeTopExtent = treeRadius;
+                
+                // Grid configuration: 6x6 = 36 trees
+                const gridCols = 6;
+                const gridRows = 6;
+                
+                // Safe zone: center 60% horizontally, full height vertically
+                const safeZonePercent = 0.6;
+                const safeZoneWidth = CANVAS_WIDTH * safeZonePercent;
+                const safeZoneStartX = (CANVAS_WIDTH - safeZoneWidth) / 2;
+                const safeZoneEndX = safeZoneStartX + safeZoneWidth;
+                
+                // Full vertical space
+                const leftBound = safeZoneStartX + treeRadius + 10;
+                const rightBound = safeZoneEndX - treeRadius - 10;
+                const topBound = 100 + treeTopOffset + treeTopExtent;
+                const bottomBound = CANVAS_HEIGHT - 100 - trunkHeight;
+                
+                const placementWidth = rightBound - leftBound;
+                const placementHeight = bottomBound - topBound;
+                
+                if (placementWidth <= 0 || placementHeight <= 0) {
+                    console.error("Cannot place trees - safe zone too small!");
+                    return;
                 }
+                
+                // Calculate grid spacing
+                const horizontalSpacing = placementWidth / (gridCols - 1);
+                const verticalSpacing = placementHeight / (gridRows - 1);
+                
+                console.log(`Placing ${gridRows}x${gridCols} grid (${NUM_TREES} trees)`);
+                console.log(`Grid spacing: ${horizontalSpacing.toFixed(1)}px x ${verticalSpacing.toFixed(1)}px`);
+                
+                // Place trees in a grid with random offsets
+                let treeId = 0;
+                for (let row = 0; row < gridRows; row++) {
+                    for (let col = 0; col < gridCols; col++) {
+                        const baseX = leftBound + (col * horizontalSpacing);
+                        const baseY = topBound + (row * verticalSpacing);
+                        // Add random offset: 5-10% on both axes
+                        const randomXOffset = (0.05 + Math.random() * 0.05) * horizontalSpacing;
+                        const randomYOffset = (0.05 + Math.random() * 0.05) * verticalSpacing;
+                        // Random direction (positive or negative)
+                        const x = baseX + (Math.random() < 0.5 ? randomXOffset : -randomXOffset);
+                        const y = baseY + (Math.random() < 0.5 ? randomYOffset : -randomYOffset);
+                        this.trees.push(new Tree(treeId++, x, y));
+                    }
+                }
+                
+                console.log(`Successfully placed ${this.trees.length} trees in grid`);
             }
 
             start() {
@@ -711,7 +760,7 @@
                     const randomTreeIndex = Math.floor(Math.random() * this.trees.length);
                     bird.currentTreeIndex = randomTreeIndex;
                     bird.x = this.trees[randomTreeIndex].x;
-                    bird.y = this.trees[randomTreeIndex].y - 20;
+                    bird.y = this.trees[randomTreeIndex].y - 25;
                     this.trees[randomTreeIndex].hasBird = true;
                     this.birds.push(bird);
                 }
@@ -801,12 +850,12 @@
                             birdsFoundDisplay.textContent = `🐦 Birds: ${this.birdsFound}/${NUM_BIRDS}`;
                             
                             // Create celebration particles
-                            this.createCelebrationParticles(targetTree.x, targetTree.y - 20);
+                            this.createCelebrationParticles(targetTree.x, targetTree.y - 25);
                             
                             // Mark bird as found (stays on tree permanently)
                             caughtBird.found = true;
                             caughtBird.x = targetTree.x;
-                            caughtBird.y = targetTree.y - 20;
+                            caughtBird.y = targetTree.y - 25;
 
                             if (this.birdsFound >= NUM_BIRDS) {
                                 this.gameState = "WON";
@@ -888,7 +937,7 @@
                 // Draw messages
                 if (this.gameState === "START") {
                     this.drawText("🐦 Bird Hunt 🌲", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120, "54px Arial", "#228B22");
-                    this.drawText("Find 5 birds hiding in 50 trees!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, "26px Arial", "#000");
+                    this.drawText("Find 5 birds hiding in 36 trees!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, "26px Arial", "#000");
                     this.drawText("Click trees to throw paper airplanes", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10, "22px Arial", "#666");
                     this.drawText("But birds fly away randomly...", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25, "20px Arial", "#FF6B6B");
                     this.drawText("Be fast AND lucky!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55, "20px Arial", "#FF6B6B");

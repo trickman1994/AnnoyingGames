@@ -28,10 +28,6 @@ async def the_last_step(request):
     return FileResponse(file_path)
 
 
-async def steady_hand(request):
-    """Serve Steady Hand game"""
-    file_path = os.path.join(BASE_DIR, "games", "steady-hand", "index.html")
-    return FileResponse(file_path)
 
 
 async def pie_guard(request):
@@ -121,8 +117,6 @@ routes = [
     Route("/games/dont-touch-red/", dont_touch_red),
     Route("/games/the-last-step", the_last_step),
     Route("/games/the-last-step/", the_last_step),
-    Route("/games/steady-hand", steady_hand),
-    Route("/games/steady-hand/", steady_hand),
     Route("/games/pie-guard", pie_guard),
     Route("/games/pie-guard/", pie_guard),
     Route("/games/cat-chase", cat_chase),
@@ -149,6 +143,7 @@ routes = [
     Route("/games/demon-cards/", demon_cards),
     Route("/games/paint-comet", paint_comet),
     Route("/games/paint-comet/", paint_comet),
+    Route("/games-order.json", lambda r: FileResponse(os.path.join(BASE_DIR, "games-order.json"), headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"})),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 
