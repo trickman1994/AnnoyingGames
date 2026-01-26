@@ -108,6 +108,12 @@ async def demon_cards(request):
     return FileResponse(file_path)
 
 
+async def paint_comet(request):
+    """Serve Paint Comet game"""
+    file_path = os.path.join(BASE_DIR, "games", "paint-comet", "index.html")
+    return FileResponse(file_path)
+
+
 # Define routes
 routes = [
     Route("/", homepage),
@@ -141,6 +147,8 @@ routes = [
     Route("/games/color-cascade/", color_cascade),
     Route("/games/demon-cards", demon_cards),
     Route("/games/demon-cards/", demon_cards),
+    Route("/games/paint-comet", paint_comet),
+    Route("/games/paint-comet/", paint_comet),
     Mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"),
 ]
 

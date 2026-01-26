@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Paint Comet - AI Own You</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            max-height: 100vh;
+            background: linear-gradient(135deg, #1a0033 0%, #330066 50%, #1a0033 100%);
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+        }
+        
+        .header-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .header-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .game-title {
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+        
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(135deg, #330066 0%, #1a0033 100%);
+            cursor: default;
+            touch-action: none;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+        }
+
+        #stats-banner {
+            background: #FFD700;
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+        }
+
+        .stat-item {
+            text-align: center;
+            color: #000;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+        }
+
+        .stat-value.timer {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            margin-top: 20px;
+        }
+        
+        .modal-body h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            color: #666;
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+
+        @media (max-width: 600px) {
+            .game-header {
+                padding: 8px 12px;
+            }
+            
+            .game-title {
+                font-size: 16px;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            #stats {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="game-header">
+        <a href="/" class="header-btn home-btn">← Home</a>
+        <h1 class="game-title">Paint Comet</h1>
+        <button class="header-btn info-btn" id="infoBtn">ℹ️</button>
+    </header>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="stats-banner">
+            <div class="stat-item">
+                <div class="stat-label">Timer</div>
+                <div class="stat-value timer" id="timer">0.00</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Stars Collected</div>
+                <div class="stat-value" id="starsCollected">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Walls Hit</div>
+                <div class="stat-value" id="wallsHit">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Stars on Screen</div>
+                <div class="stat-value" id="starsOnScreen">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Paint Comet - How to Play</h2>
+            <div class="modal-body">
+                <p><strong>Control a glowing comet that paints beautiful trails as it moves through space!</strong></p>
+                
+                <h3>Controls</h3>
+                <p>Click or tap anywhere to guide your comet. The comet uses physics-based movement - click far away for more force, close for gentle movement. Upward clicks give extra boost!</p>
+                
+                <h3>Objective</h3>
+                <p>Hit the gold glowing walls to spawn stars! Each wall hit creates 3 new stars in random positions. Collect stars by passing through them. No goal - just paint and collect!</p>
+                
+                <h3>Mechanics</h3>
+                <p>The comet leaves a beautiful glowing trail wherever it goes. Hit the walls (4 on each side) to spawn stars. The trail fades over time, creating dynamic, artistic patterns!</p>
+                
+                <h3>Strategy</h3>
+                <p>Use the physics movement to bounce off walls and create stars. The comet's momentum carries it, so plan your path to hit walls and collect the stars they spawn!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Info modal
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.querySelector('.close-modal');
+        
+        if (infoBtn) infoBtn.addEventListener('click', () => infoModal.style.display = 'block');
+        if (closeModal) closeModal.addEventListener('click', () => infoModal.style.display = 'none');
+        window.addEventListener('click', (e) => { if (e.target === infoModal) infoModal.style.display = 'none'; });
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        let CANVAS_WIDTH, CANVAS_HEIGHT;
+
+        // Constants
+        const GRAVITY = 0.15;
+        const COMET_SIZE = 8;
+        const TRAIL_LENGTH = 100;
+        const WALL_THICKNESS = 20;
+        const WALL_COUNT_PER_SIDE = 4;
+        const INITIAL_STARS = 100;
+        const STARS_PER_WALL_HIT = 5;
+        const MAX_STARS_ON_SCREEN = 1000;
+
+        // Resize
+        function resizeCanvas() {
+            const container = document.getElementById("game-container");
+            const header = document.querySelector(".game-header");
+            const statsBanner = document.getElementById("stats-banner");
+            const headerHeight = header ? header.offsetHeight : 0;
+            const bannerHeight = statsBanner ? statsBanner.offsetHeight : 0;
+            const padding = 10;
+            
+            CANVAS_WIDTH = Math.min(container.clientWidth, 600);
+            const availableHeight = window.innerHeight - headerHeight - bannerHeight - padding;
+            CANVAS_HEIGHT = Math.max(availableHeight, 300);
+            
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+        }
+
+        resizeCanvas();
+        window.addEventListener("resize", () => {
+            resizeCanvas();
+            if (game && game.gameState === "PLAYING") {
+                game.generateWalls();
+            }
+        });
+
+        class TrailPoint {
+            constructor(x, y, color, time, baseSize) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.time = time;
+                this.baseSize = baseSize || COMET_SIZE;
+                this.size = this.baseSize * (0.3 + time * 0.7);
+            }
+        }
+
+        class Star {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 12 + Math.random() * 8;
+                this.collected = false;
+                this.pulse = Math.random() * Math.PI * 2;
+                this.color = `hsl(${Math.random() * 60 + 30}, 100%, ${60 + Math.random() * 30}%)`;
+            }
+
+            update(deltaTime) {
+                this.pulse += deltaTime * 3;
+            }
+
+            checkCollision(cometX, cometY, cometSize) {
+                if (this.collected) return false;
+                const dx = cometX - this.x;
+                const dy = cometY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                // Collection range scales with comet size (3x range when comet is 3x bigger)
+                if (dist < this.size + cometSize) {
+                    this.collected = true;
+                    return true;
+                }
+                return false;
+            }
+
+            draw() {
+                if (this.collected) return;
+                
+                const pulseSize = this.size + Math.sin(this.pulse) * 2;
+                
+                // Outer glow
+                const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, pulseSize * 2);
+                glowGradient.addColorStop(0, this.color);
+                glowGradient.addColorStop(0.5, this.color.replace(')', ', 0.5)').replace('hsl', 'hsla'));
+                glowGradient.addColorStop(1, this.color.replace(')', ', 0)').replace('hsl', 'hsla'));
+                
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, pulseSize * 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Star shape
+                ctx.fillStyle = this.color;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.pulse);
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                    const x = Math.cos(angle) * pulseSize;
+                    const y = Math.sin(angle) * pulseSize;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Wall {
+            constructor(side, index) {
+                this.side = side; // 'top', 'bottom', 'left', 'right'
+                this.index = index;
+                this.glowPhase = Math.random() * Math.PI * 2;
+                this.setupPosition();
+            }
+            
+            setupPosition() {
+                if (this.side === 'top' || this.side === 'bottom') {
+                    const segmentWidth = CANVAS_WIDTH / WALL_COUNT_PER_SIDE;
+                    this.x = segmentWidth * this.index + segmentWidth / 2;
+                    this.y = this.side === 'top' ? WALL_THICKNESS / 2 : CANVAS_HEIGHT - WALL_THICKNESS / 2;
+                    this.width = segmentWidth;
+                    this.height = WALL_THICKNESS;
+                } else {
+                    const segmentHeight = CANVAS_HEIGHT / WALL_COUNT_PER_SIDE;
+                    this.x = this.side === 'left' ? WALL_THICKNESS / 2 : CANVAS_WIDTH - WALL_THICKNESS / 2;
+                    this.y = segmentHeight * this.index + segmentHeight / 2;
+                    this.width = WALL_THICKNESS;
+                    this.height = segmentHeight;
+                }
+            }
+            
+            update(deltaTime) {
+                this.glowPhase += deltaTime * 2;
+            }
+            
+            checkCollision(cometX, cometY, cometSize) {
+                if (this.side === 'top') {
+                    return cometY - cometSize <= this.height && 
+                           cometX >= this.x - this.width / 2 && 
+                           cometX <= this.x + this.width / 2;
+                } else if (this.side === 'bottom') {
+                    return cometY + cometSize >= CANVAS_HEIGHT - this.height && 
+                           cometX >= this.x - this.width / 2 && 
+                           cometX <= this.x + this.width / 2;
+                } else if (this.side === 'left') {
+                    return cometX - cometSize <= this.width && 
+                           cometY >= this.y - this.height / 2 && 
+                           cometY <= this.y + this.height / 2;
+                } else if (this.side === 'right') {
+                    return cometX + cometSize >= CANVAS_WIDTH - this.width && 
+                           cometY >= this.y - this.height / 2 && 
+                           cometY <= this.y + this.height / 2;
+                }
+                return false;
+            }
+            
+            draw() {
+                const glow = 0.7 + Math.sin(this.glowPhase) * 0.3;
+                
+                // Gold glow
+                const glowGradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, Math.max(this.width, this.height) * 1.5
+                );
+                glowGradient.addColorStop(0, `rgba(255, 215, 0, ${glow})`);
+                glowGradient.addColorStop(0.5, `rgba(255, 215, 0, ${glow * 0.5})`);
+                glowGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                
+                ctx.fillStyle = glowGradient;
+                if (this.side === 'top' || this.side === 'bottom') {
+                    ctx.fillRect(this.x - this.width / 2 - 10, this.y - 10, this.width + 20, this.height + 20);
+                } else {
+                    ctx.fillRect(this.x - 10, this.y - this.height / 2 - 10, this.width + 20, this.height + 20);
+                }
+                
+                // Main wall
+                const goldGradient = ctx.createLinearGradient(
+                    this.x - this.width / 2, this.y - this.height / 2,
+                    this.x + this.width / 2, this.y + this.height / 2
+                );
+                goldGradient.addColorStop(0, '#FFD700');
+                goldGradient.addColorStop(0.5, '#FFA500');
+                goldGradient.addColorStop(1, '#FF8C00');
+                
+                ctx.fillStyle = goldGradient;
+                if (this.side === 'top' || this.side === 'bottom') {
+                    ctx.fillRect(this.x - this.width / 2, this.y, this.width, this.height);
+                } else {
+                    ctx.fillRect(this.x, this.y - this.height / 2, this.width, this.height);
+                }
+                
+                // Highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                if (this.side === 'top' || this.side === 'bottom') {
+                    ctx.fillRect(this.x - this.width / 2, this.y, this.width, this.height * 0.3);
+                } else {
+                    ctx.fillRect(this.x, this.y - this.height / 2, this.width * 0.3, this.height);
+                }
+            }
+        }
+
+        class Comet {
+            constructor() {
+                this.x = CANVAS_WIDTH / 2;
+                this.y = CANVAS_HEIGHT / 2;
+                this.prevX = this.x;
+                this.prevY = this.y;
+                this.vx = 0;
+                this.vy = 0;
+                this.baseSize = COMET_SIZE;
+                this.size = this.baseSize;
+                this.angle = 0;
+                this.trail = [];
+                this.colorHue = Math.random() * 360;
+                this.flashTimer = 0;
+            }
+            
+            getSpeed() {
+                return Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            }
+            
+            getSizeMultiplier() {
+                const speed = this.getSpeed();
+                const maxSpeed = 20; // Max speed from moveToward
+                // Scale from 1x to 3x based on speed
+                const multiplier = 1 + (speed / maxSpeed) * 2; // 1x to 3x
+                return Math.min(multiplier, 3);
+            }
+            
+            getCurrentSize() {
+                return this.baseSize * this.getSizeMultiplier();
+            }
+
+            moveToward(clickX, clickY) {
+                const dx = clickX - this.x;
+                const dy = clickY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 10) {
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    
+                    let force = Math.min(distance / 40, 12);
+                    
+                    // Extra boost for upward clicks
+                    if (dy < 0) {
+                        force *= 1.5;
+                    }
+                    
+                    this.vx += dirX * force;
+                    this.vy += dirY * force;
+                    
+                    // Cap max velocity
+                    const maxSpeed = 20;
+                    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    if (currentSpeed > maxSpeed) {
+                        this.vx = (this.vx / currentSpeed) * maxSpeed;
+                        this.vy = (this.vy / currentSpeed) * maxSpeed;
+                    }
+                    
+                    // Flash effect on click
+                    this.flashTimer = 0.2;
+                    this.colorHue = (this.colorHue + 30) % 360;
+                }
+            }
+
+            update(deltaTime) {
+                const dt = deltaTime * 60;
+                
+                // Store previous position for wall collision detection
+                this.prevX = this.x;
+                this.prevY = this.y;
+                
+                // Apply gravity
+                this.vy += GRAVITY * dt;
+                
+                // Natural buoyancy when falling
+                if (this.vy > 0) {
+                    this.vy *= 0.97;
+                }
+                
+                // Apply friction
+                this.vx *= 0.98;
+                this.vy *= 0.995;
+                
+                // Apply velocity
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                // Update size based on speed
+                this.size = this.getCurrentSize();
+                
+                // Update angle
+                this.angle = Math.atan2(this.vy, this.vx);
+                
+                // Add trail point (use current size for trail width)
+                const speed = this.getSpeed();
+                const color = `hsl(${this.colorHue}, 100%, ${50 + speed * 2}%)`;
+                this.trail.push(new TrailPoint(this.x, this.y, color, 0, this.size));
+                
+                // Limit trail length and age points
+                if (this.trail.length > TRAIL_LENGTH) {
+                    this.trail.shift();
+                }
+                
+                this.trail.forEach(point => {
+                    point.time += deltaTime * 2;
+                });
+                
+                // Remove old trail points
+                this.trail = this.trail.filter(point => point.time < 1);
+                
+                // Update flash timer
+                if (this.flashTimer > 0) {
+                    this.flashTimer -= deltaTime;
+                }
+            }
+
+            draw() {
+                // Draw trail
+                if (this.trail.length > 1) {
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const prev = this.trail[i - 1];
+                        const curr = this.trail[i];
+                        
+                        const alpha = 1 - curr.time;
+                        const gradient = ctx.createLinearGradient(prev.x, prev.y, curr.x, curr.y);
+                        gradient.addColorStop(0, prev.color.replace(')', `, ${alpha * 0.8})`).replace('hsl', 'hsla'));
+                        gradient.addColorStop(1, curr.color.replace(')', `, ${alpha * 0.8})`).replace('hsl', 'hsla'));
+                        
+                        ctx.strokeStyle = gradient;
+                        ctx.lineWidth = curr.size;
+                        ctx.lineCap = 'round';
+                        ctx.beginPath();
+                        ctx.moveTo(prev.x, prev.y);
+                        ctx.lineTo(curr.x, curr.y);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Draw comet core
+                const speed = this.getSpeed();
+                const brightness = 50 + speed * 2;
+                const color = `hsl(${this.colorHue}, 100%, ${brightness}%)`;
+                const sizeMultiplier = this.getSizeMultiplier();
+                
+                // Reduced glow effects (5x less intense)
+                const glowSize = this.size * (4 / 5) * sizeMultiplier; // Reduced glow size
+                const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowSize);
+                const glowIntensity = (0.6 + (sizeMultiplier - 1) * 0.4) / 5; // 5x less intense
+                glowGradient.addColorStop(0, color);
+                glowGradient.addColorStop(0.2, color.replace(')', `, ${glowIntensity})`).replace('hsl', 'hsla'));
+                glowGradient.addColorStop(0.4, color.replace(')', `, ${glowIntensity * 0.7})`).replace('hsl', 'hsla'));
+                glowGradient.addColorStop(0.6, color.replace(')', `, ${glowIntensity * 0.4})`).replace('hsl', 'hsla'));
+                glowGradient.addColorStop(1, color.replace(')', ', 0)').replace('hsl', 'hsla'));
+                
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Additional outer glow layer for high speeds (reduced)
+                if (sizeMultiplier > 2) {
+                    const outerGlowSize = this.size * (6 / 5) * sizeMultiplier; // Reduced
+                    const outerGlowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, outerGlowSize);
+                    outerGlowGradient.addColorStop(0, color.replace(')', ', 0.06)').replace('hsl', 'hsla')); // 0.3/5
+                    outerGlowGradient.addColorStop(0.5, color.replace(')', ', 0.03)').replace('hsl', 'hsla')); // 0.15/5
+                    outerGlowGradient.addColorStop(1, color.replace(')', ', 0)').replace('hsl', 'hsla'));
+                    
+                    ctx.fillStyle = outerGlowGradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, outerGlowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Flash effect (reduced)
+                if (this.flashTimer > 0) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.flashTimer * 0.1})`; // 0.5/5 = 0.1
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * (6 / 5) * sizeMultiplier, 0, Math.PI * 2); // Reduced size
+                    ctx.fill();
+                }
+                
+                // Core
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Direction indicator
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2 * sizeMultiplier;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + Math.cos(this.angle) * this.size * 2, this.y + Math.sin(this.angle) * this.size * 2);
+                ctx.stroke();
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = "START";
+                this.comet = new Comet();
+                this.stars = [];
+                this.walls = [];
+                this.starsCollected = 0;
+                this.wallsHit = 0;
+                this.gameTime = 0;
+                this.isTimeRunning = false;
+            }
+
+            generateWalls() {
+                this.walls = [];
+                
+                // Top walls
+                for (let i = 0; i < WALL_COUNT_PER_SIDE; i++) {
+                    this.walls.push(new Wall('top', i));
+                }
+                // Bottom walls
+                for (let i = 0; i < WALL_COUNT_PER_SIDE; i++) {
+                    this.walls.push(new Wall('bottom', i));
+                }
+                // Left walls
+                for (let i = 0; i < WALL_COUNT_PER_SIDE; i++) {
+                    this.walls.push(new Wall('left', i));
+                }
+                // Right walls
+                for (let i = 0; i < WALL_COUNT_PER_SIDE; i++) {
+                    this.walls.push(new Wall('right', i));
+                }
+            }
+
+            spawnStars(count = STARS_PER_WALL_HIT) {
+                const currentStars = this.stars.filter(s => !s.collected).length;
+                const starsToSpawn = Math.min(count, MAX_STARS_ON_SCREEN - currentStars);
+                
+                for (let i = 0; i < starsToSpawn; i++) {
+                    const x = 50 + Math.random() * (CANVAS_WIDTH - 100);
+                    const y = 50 + Math.random() * (CANVAS_HEIGHT - 100);
+                    this.stars.push(new Star(x, y));
+                }
+            }
+
+            start() {
+                this.gameState = "PLAYING";
+                this.comet = new Comet();
+                this.stars = [];
+                this.starsCollected = 0;
+                this.wallsHit = 0;
+                this.gameTime = 0;
+                this.isTimeRunning = true;
+                this.generateWalls();
+                
+                // Start with 100 random stars
+                this.spawnStars(INITIAL_STARS);
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== "PLAYING") return;
+                
+                // Update timer only if time is running
+                if (this.isTimeRunning) {
+                    this.gameTime += deltaTime;
+                }
+                
+                // Update comet
+                this.comet.update(deltaTime);
+                
+                // Check wall collisions (only process first collision)
+                let wallHitThisFrame = false;
+                this.walls.forEach(wall => {
+                    wall.update(deltaTime);
+                    if (!wallHitThisFrame && wall.checkCollision(this.comet.x, this.comet.y, this.comet.size)) {
+                        wallHitThisFrame = true;
+                        
+                        // Bounce off wall
+                        if (wall.side === 'top') {
+                            this.comet.y = WALL_THICKNESS + this.comet.size;
+                            this.comet.vy *= -0.7;
+                        } else if (wall.side === 'bottom') {
+                            this.comet.y = CANVAS_HEIGHT - WALL_THICKNESS - this.comet.size;
+                            this.comet.vy *= -0.7;
+                        } else if (wall.side === 'left') {
+                            this.comet.x = WALL_THICKNESS + this.comet.size;
+                            this.comet.vx *= -0.7;
+                        } else if (wall.side === 'right') {
+                            this.comet.x = CANVAS_WIDTH - WALL_THICKNESS - this.comet.size;
+                            this.comet.vx *= -0.7;
+                        }
+                        
+                        // Spawn 5 stars (with limit check)
+                        this.spawnStars(STARS_PER_WALL_HIT);
+                        this.wallsHit++;
+                        
+                        // Visual feedback
+                        this.comet.flashTimer = 0.3;
+                        this.comet.colorHue = (this.comet.colorHue + 60) % 360;
+                    }
+                });
+                
+                // Update stars and check collisions
+                this.stars.forEach((star, index) => {
+                    star.update(deltaTime);
+                    if (star.checkCollision(this.comet.x, this.comet.y, this.comet.size)) {
+                        this.starsCollected++;
+                        this.stars.splice(index, 1);
+                    }
+                });
+                
+                // Remove collected stars
+                this.stars = this.stars.filter(star => !star.collected);
+                
+                // Check if no stars remain - stop time and game
+                const activeStars = this.stars.filter(star => !star.collected).length;
+                if (activeStars === 0 && this.isTimeRunning) {
+                    this.isTimeRunning = false;
+                    this.gameState = "GAME_OVER";
+                }
+                
+                this.updateUI();
+            }
+
+            draw() {
+                // Clear purple background (game area)
+                ctx.fillStyle = "rgba(51, 0, 102, 0.3)";
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                if (this.gameState === "START") {
+                    ctx.fillStyle = "white";
+                    ctx.font = "bold 32px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("PAINT COMET", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+                    ctx.font = "20px Arial";
+                    ctx.fillText("Click to Start", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                    ctx.font = "14px Arial";
+                    ctx.fillText("Collect all stars! Hit walls to spawn more!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+                    return;
+                }
+                
+                if (this.gameState === "GAME_OVER") {
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    ctx.fillStyle = "#FFD700";
+                    ctx.font = "bold 32px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("ALL STARS COLLECTED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+                    ctx.fillStyle = "white";
+                    ctx.font = "20px Arial";
+                    ctx.fillText(`Time: ${this.gameTime.toFixed(2)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+                    ctx.fillText(`Stars: ${this.starsCollected} | Walls: ${this.wallsHit}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+                    ctx.font = "18px Arial";
+                    ctx.fillText("Click to Restart", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+                    return;
+                }
+                
+                // Draw walls
+                this.walls.forEach(wall => wall.draw());
+                
+                // Draw stars
+                this.stars.forEach(star => star.draw());
+                
+                // Draw comet (with trail)
+                this.comet.draw();
+            }
+
+            updateUI() {
+                document.getElementById("timer").textContent = this.gameTime.toFixed(2);
+                document.getElementById("starsCollected").textContent = this.starsCollected;
+                document.getElementById("wallsHit").textContent = this.wallsHit;
+                document.getElementById("starsOnScreen").textContent = this.stars.filter(s => !s.collected).length;
+            }
+        }
+
+        // Init
+        const game = new Game();
+        let lastTime = performance.now();
+
+        function gameLoop(now) {
+            const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+            game.update(deltaTime);
+            game.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function getCanvasPos(event) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function onClick(event) {
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON') return;
+            const pos = getCanvasPos(event);
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.comet.moveToward(pos.x, pos.y);
+            } else if (game.gameState === "GAME_OVER") {
+                game.start();
+            } else {
+                game.start();
+            }
+        }
+
+        function onTouchEnd(event) {
+            const touch = event.changedTouches[0];
+            const rect = canvas.getBoundingClientRect();
+            const pos = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+            
+            if (game.gameState === "START") {
+                game.start();
+            } else if (game.gameState === "PLAYING") {
+                game.comet.moveToward(pos.x, pos.y);
+            } else if (game.gameState === "GAME_OVER") {
+                game.start();
+            } else {
+                game.start();
+            }
+        }
+
+        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+        canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
